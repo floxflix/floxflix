@@ -519,7 +519,7 @@ func handleCreateVideo(client *mongo.Client, cfg *config.Config, q *queue.Conver
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		result, err := coll.InsertOne(ctx, item)
+		_, err = coll.InsertOne(ctx, item)
 		if err != nil {
 			utils.Error(w, http.StatusInternalServerError, "Failed to create content")
 			return
@@ -533,7 +533,7 @@ func handleCreateVideo(client *mongo.Client, cfg *config.Config, q *queue.Conver
 
 		utils.Success(w, http.StatusCreated, map[string]any{
 			"status": "success",
-			"id":     result.InsertedID,
+			"id":     item.UUID,
 			"queued": len(jobs),
 		})
 	}
@@ -873,7 +873,7 @@ func handleUploadVideo(client *mongo.Client, cfg *config.Config, q *queue.Conver
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		result, err := coll.InsertOne(ctx, item)
+		_, err = coll.InsertOne(ctx, item)
 		if err != nil {
 			utils.Error(w, http.StatusInternalServerError, "Failed to create catalog entry")
 			return
@@ -891,7 +891,7 @@ func handleUploadVideo(client *mongo.Client, cfg *config.Config, q *queue.Conver
 
 		utils.Success(w, http.StatusCreated, map[string]any{
 			"status": "success",
-			"id":     result.InsertedID,
+			"id":     contentUUID,
 		})
 	}
 }
