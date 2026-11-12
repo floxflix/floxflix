@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1
+
+# API-only image: no Node stage and no UI build. SERVE_UI=false keeps the
+# server on the API routes; the committed UI placeholder is still embedded so
+# go:embed compiles, but it is never served.
+
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine3.23 AS builder
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+COPY cmd ./cmd
+COPY internal ./internal
+
+ARG TARGETOS=linux
+ARG TARGETARCH
+ARG VERSION=dev
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o floxflix ./cmd/server
+
+FROM alpine:3.23
+
+RUN apk add --no-cache ffmpeg ca-certificates tzdata \
+    && addgroup -S -g 10001 floxflix \
+    && adduser -S -D -H -u 10001 -G floxflix floxflix
+
+WORKDIR /app
+
+COPY --from=builder /build/floxflix .
+
+RUN mkdir -p /app/uploads && chown -R floxflix:floxflix /app
+
+USER floxflix
+
+ENV UPLOAD_FOLDER=/app/uploads
+ENV PORT=7777
+ENV SERVE_UI=false
+
+EXPOSE 7777
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+    CMD wget -qO- http://127.0.0.1:7777/healthz || exit 1
+
+CMD ["/app/floxflix"]

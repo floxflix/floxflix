@@ -9,20 +9,34 @@ Thanks for your interest in contributing! This document explains how to get set 
 - Go 1.26+
 - MongoDB (or Docker, to run it via `docker compose`)
 - FFmpeg available on `PATH`
+- Node.js 20+ (only when building the UI)
 
 ### Setup
 
+The UI lives in a git submodule at `web/`, so clone recursively:
+
 ```bash
-git clone https://github.com/elvis-segovia/floxflix.git
+git clone --recursive https://github.com/floxflix/floxflix.git
 cd floxflix
+# If you cloned without --recursive:
+git submodule update --init --recursive
 cp .env.example .env
 go mod download
 go run ./cmd/server
 ```
 
-The API listens on `http://localhost:7777` by default. Alternatively, run everything (API + MongoDB) with:
+The API listens on `http://localhost:7777` by default. `go run` serves the committed placeholder UI;
+to run the real UI from source, build it once and point the server at it:
 
 ```bash
+(cd web && npm ci && npm run build)
+UI_DIR=./web/dist go run ./cmd/server
+```
+
+Alternatively, run everything (UI + API + MongoDB) with:
+
+```bash
+export JWT_SECRET_KEY=$(openssl rand -base64 48)
 docker compose up --build
 ```
 

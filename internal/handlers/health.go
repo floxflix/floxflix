@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/elvis/floxflix/internal/database"
-	"github.com/elvis/floxflix/internal/utils"
+	"github.com/floxflix/floxflix/internal/database"
+	"github.com/floxflix/floxflix/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )

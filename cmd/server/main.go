@@ -9,14 +9,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/elvis/floxflix/internal/config"
-	"github.com/elvis/floxflix/internal/database"
-	"github.com/elvis/floxflix/internal/handlers"
-	"github.com/elvis/floxflix/internal/middleware"
-	"github.com/elvis/floxflix/internal/queue"
+	"github.com/floxflix/floxflix/internal/config"
+	"github.com/floxflix/floxflix/internal/database"
+	"github.com/floxflix/floxflix/internal/handlers"
+	"github.com/floxflix/floxflix/internal/middleware"
+	"github.com/floxflix/floxflix/internal/queue"
+	"github.com/floxflix/floxflix/internal/web"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 )
+
+// version is set at build time with -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
 	cfg, err := config.Load()
@@ -44,9 +48,33 @@ func main() {
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.ClientIPFromRemoteAddr)
-	r.Use(middleware.CORS(cfg.CORSOrigins))
+	if len(cfg.CORSOrigins) > 0 {
+		r.Use(middleware.CORS(cfg.CORSOrigins))
+	}
+	// Only compress text assets and JSON. HLS segments and posters are already
+	// compressed; gzipping them burns CPU that ffmpeg wants.
+	r.Use(chimw.Compress(5,
+		"text/html",
+		"text/css",
+		"application/javascript",
+		"application/json",
+		"image/svg+xml",
+	))
 
-	handlers.RegisterFallback(r)
+	var spa http.Handler
+	if cfg.ServeUI {
+		var uiFS = web.Dist()
+		if cfg.UIDir != "" {
+			log.Printf("Serving UI from directory %s", cfg.UIDir)
+			uiFS = os.DirFS(cfg.UIDir)
+		} else {
+			log.Printf("Serving embedded UI")
+		}
+		spa = web.NewHandler(uiFS)
+		handlers.RegisterRuntimeConfig(r, cfg)
+	}
+
+	handlers.RegisterFallback(r, spa)
 	handlers.RegisterHealthRoutes(r, db)
 	handlers.RegisterAuthRoutes(r, db, cfg)
 	handlers.RegisterUserRoutes(r, db, cfg)
@@ -64,7 +92,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("FloxFlix API server starting on :%s", cfg.Port)
+		log.Printf("FloxFlix server (version %s) starting on :%s", version, cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}

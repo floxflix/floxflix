@@ -30,6 +30,18 @@ type Config struct {
 	// HTTPS. Plain-HTTP deploys must set COOKIE_SECURE=false.
 	CookieSecure   bool
 	CookieSameSite http.SameSite
+
+	// UI configuration for the all-in-one image.
+	ServeUI bool
+	// UIDir, when set, serves the SPA from this directory instead of the
+	// embedded build. Intended for local UI iteration without rebuilding.
+	UIDir string
+	// The values below are emitted by /config.js and read by the SPA at
+	// runtime. Empty UIStreamAPIURL means same origin.
+	UIStreamAPIURL             string
+	UIStreamAPIPrefix          string
+	UIStreamAPIPrefixAdmin     string
+	UIDefaultNextEpisodeOffset string
 }
 
 func Load() (*Config, error) {
@@ -53,7 +65,7 @@ func Load() (*Config, error) {
 	return &Config{
 		MongoURI:        getEnv("MONGO_URI", "mongodb://localhost:27017/floxflix"),
 		JWTSecret:       []byte(jwtKey),
-		CORSOrigins:     strings.Split(getEnv("CORS_ORIGIN", "http://localhost:5173"), ","),
+		CORSOrigins:     splitCSV(getEnv("CORS_ORIGIN", "")),
 		UploadFolder:    getEnv("UPLOAD_FOLDER", "./uploads"),
 		Port:            getEnv("PORT", "7777"),
 		MaxFileSize:     getEnvInt64("MAX_FILE_SIZE", 2<<30), // 2GB
@@ -64,7 +76,26 @@ func Load() (*Config, error) {
 		RefreshTokenTTL: time.Hour * 24 * 30,
 		CookieSecure:    cookieSecure,
 		CookieSameSite:  cookieSameSite,
+
+		ServeUI:                    getEnvBool("SERVE_UI", true),
+		UIDir:                      os.Getenv("UI_DIR"),
+		UIStreamAPIURL:             os.Getenv("VITE_STREAMAPI_URL"),
+		UIStreamAPIPrefix:          getEnv("VITE_STREAMAPI_PREFIX", "/v1/api"),
+		UIStreamAPIPrefixAdmin:     getEnv("VITE_STREAMAPI_PREFIX_ADMIN", "/dashboard"),
+		UIDefaultNextEpisodeOffset: getEnv("VITE_DEFAULT_NEXT_EPISODE_OFFSET", "15"),
 	}, nil
+}
+
+// splitCSV trims each entry and drops empties, so an unset CORS_ORIGIN
+// disables the middleware instead of matching the empty Origin header.
+func splitCSV(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func getEnv(key, fallback string) string {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elvis/floxflix/internal/config"
+	"github.com/floxflix/floxflix/internal/config"
 )
 
 func TestNewAuthCookie_UsesConfigFlags(t *testing.T) {

@@ -128,6 +128,59 @@ func TestLoad_PlainHTTPCombo(t *testing.T) {
 	}
 }
 
+func TestLoad_UIDefaults(t *testing.T) {
+	t.Setenv("JWT_SECRET_KEY", testJWTSecret)
+	t.Setenv("SERVE_UI", "")
+	t.Setenv("UI_DIR", "")
+	t.Setenv("VITE_STREAMAPI_URL", "")
+	t.Setenv("VITE_STREAMAPI_PREFIX", "")
+	t.Setenv("VITE_STREAMAPI_PREFIX_ADMIN", "")
+	t.Setenv("VITE_DEFAULT_NEXT_EPISODE_OFFSET", "")
+	t.Setenv("CORS_ORIGIN", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if !cfg.ServeUI {
+		t.Error("ServeUI default = false, want true")
+	}
+	if cfg.UIStreamAPIURL != "" {
+		t.Errorf("UIStreamAPIURL = %q, want empty (same origin)", cfg.UIStreamAPIURL)
+	}
+	if cfg.UIStreamAPIPrefix != "/v1/api" {
+		t.Errorf("UIStreamAPIPrefix = %q, want /v1/api", cfg.UIStreamAPIPrefix)
+	}
+	if cfg.UIStreamAPIPrefixAdmin != "/dashboard" {
+		t.Errorf("UIStreamAPIPrefixAdmin = %q, want /dashboard", cfg.UIStreamAPIPrefixAdmin)
+	}
+	if cfg.UIDefaultNextEpisodeOffset != "15" {
+		t.Errorf("UIDefaultNextEpisodeOffset = %q, want 15", cfg.UIDefaultNextEpisodeOffset)
+	}
+	if len(cfg.CORSOrigins) != 0 {
+		t.Errorf("CORSOrigins = %v, want empty", cfg.CORSOrigins)
+	}
+}
+
+func TestLoad_CORSOrigins(t *testing.T) {
+	t.Setenv("JWT_SECRET_KEY", testJWTSecret)
+	t.Setenv("CORS_ORIGIN", " http://a.example , ,http://b.example ")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	want := []string{"http://a.example", "http://b.example"}
+	if len(cfg.CORSOrigins) != len(want) {
+		t.Fatalf("CORSOrigins = %v, want %v", cfg.CORSOrigins, want)
+	}
+	for i := range want {
+		if cfg.CORSOrigins[i] != want[i] {
+			t.Errorf("CORSOrigins[%d] = %q, want %q", i, cfg.CORSOrigins[i], want[i])
+		}
+	}
+}
+
 func TestParseSameSite(t *testing.T) {
 	_, err := parseSameSite("  lax  ")
 	if err != nil {

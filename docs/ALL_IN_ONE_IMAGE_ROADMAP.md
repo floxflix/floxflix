@@ -6,7 +6,10 @@ images from two repositories (`floxflix` here, `floxflix-ui` in [`streamadmin`](
 which means two deployments, two ingress hosts, a CORS allowlist to keep in sync, and a version skew
 nobody tracks.
 
-Status: proposal / not implemented. Owner: @elvus.
+Status: MVP implemented — the Go server embeds and serves the submodule UI at `web/`, `/config.js` is
+generated from env, the three-stage non-root image is in the root `Dockerfile`, and
+`.github/workflows/release-images.yml` publishes both images on `v*` tags. Remaining polish: the
+version endpoint, post-build CI smoke tests, and the remaining k8s updates. Owner: @elvus.
 
 **Scope note:** "all-in-one" here means *UI + API*. MongoDB stays a separate service — see §9.
 

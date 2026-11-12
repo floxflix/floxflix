@@ -11,6 +11,20 @@ vendor/
 # compiled binary at repo root
 /server
 
+# git metadata and the UI submodule's own history
+.git
+.gitmodules
+web/.git
+
+# UI dependencies and build output (the all-in-one Dockerfile builds these
+# itself). internal/web/dist is intentionally kept: Dockerfile.api embeds the
+# committed placeholder so go:embed always has a directory.
+web/node_modules/
+web/dist/
+
+# local runtime data
+mongo_data/
+
 # macOS
 .DS_Store
 

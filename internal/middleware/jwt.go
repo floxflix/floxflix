@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elvis/floxflix/internal/database"
-	"github.com/elvis/floxflix/internal/utils"
+	"github.com/floxflix/floxflix/internal/database"
+	"github.com/floxflix/floxflix/internal/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -77,6 +77,9 @@ func parseToken(secret []byte, tokenString string) (*TokenClaims, error) {
 }
 
 func isTokenBlacklisted(client *mongo.Client, jti string) bool {
+	if client == nil {
+		return false
+	}
 	coll := database.Collection(client, "token_blacklist")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

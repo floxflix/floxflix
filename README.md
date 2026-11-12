@@ -7,10 +7,11 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white)](#running-with-docker)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-Self-hosted video streaming API written in Go. It ingests source video files, transcodes them to HLS via FFmpeg in a background worker queue, and serves the resulting catalog (movies and TV shows) to authenticated users with per-account viewer profiles.
+Self-hosted video streaming server written in Go. It ingests source video files, transcodes them to HLS via FFmpeg in a background worker queue, and serves the resulting catalog (movies and TV shows) to authenticated users with per-account viewer profiles. A single all-in-one image bundles the React UI and this API behind one port.
 
 ## Features
 
+- One image, one port: the Go server serves the API and the embedded React UI from the same origin
 - JWT-based authentication with access/refresh tokens delivered as HTTP-only cookies
 - User and viewer-profile management (Netflix-style multi-profile per account)
 - Movie and TV show catalog with seasons, episodes and rich metadata
@@ -28,6 +29,7 @@ Self-hosted video streaming API written in Go. It ingests source video files, tr
 - MongoDB (driver v2)
 - [golang-jwt](https://github.com/golang-jwt/jwt) for JWT
 - FFmpeg (system binary, used by the conversion worker)
+- React + Vite + Ant Design UI (bundled from the `web/` submodule)
 
 ## Project layout
 
@@ -41,6 +43,8 @@ internal/models/     Domain models (User, Viewer, CatalogItem, ...)
 internal/queue/      FFmpeg conversion queue
 internal/storage/    Upload folder layout (paths relative to UPLOAD_FOLDER)
 internal/utils/      JSON helpers, password hashing, etc.
+internal/web/        Embedded SPA assets and static-file handler
+web/                 UI git submodule (React + Vite)
 uploads/             Default upload + HLS output directory
   movies/<title>/                 Movie source, poster, playlist and segments
   tv-shows/<title>/               Show poster
@@ -56,7 +60,7 @@ Configuration is loaded from environment variables. A starting point is provided
 | ------------------ | ---------------------------------------- | ------------------------------------------------ |
 | `MONGO_URI`        | `mongodb://localhost:27017/floxflix`     | MongoDB connection string                        |
 | `JWT_SECRET_KEY`   | _(required)_                             | Secret used to sign JWTs. No default: the server refuses to start unless it is set and at least 32 bytes long. Generate one with `openssl rand -base64 48`. |
-| `CORS_ORIGIN`      | `http://localhost:5173`                  | Allowed CORS origin(s), comma-separated          |
+| `CORS_ORIGIN`      | _(empty)_                                | Allowed CORS origin(s), comma-separated. Empty disables the middleware; the all-in-one image is same-origin so it needs nothing here. |
 | `UPLOAD_FOLDER`    | `./uploads`                              | Directory for uploaded files and HLS output      |
 | `PORT`             | `7777`                                   | HTTP listen port                                 |
 | `HLS_SEGMENT_TIME` | `10`                                     | HLS segment duration in seconds                  |
@@ -65,6 +69,12 @@ Configuration is loaded from environment variables. A starting point is provided
 | `MAX_FILE_SIZE`    | `2147483648`                             | Max upload size in bytes (default 2 GiB)         |
 | `COOKIE_SECURE`    | `true`                                   | Auth cookie `Secure` flag. Set `false` for plain-HTTP LAN deploys (browsers drop `Secure` cookies over `http://` except localhost). TLS in front of the API is the better answer. |
 | `COOKIE_SAMESITE`  | `lax`                                    | Auth cookie `SameSite` (`lax`, `strict`, or `none`). `none` requires `COOKIE_SECURE=true`. |
+| `SERVE_UI`         | `true`                                   | Serve the embedded UI. Set `false` for API-only mode from the same image. |
+| `UI_DIR`           | _(unset)_                                | Serve the SPA from this directory instead of the embedded build (local UI iteration). |
+| `VITE_STREAMAPI_URL` | _(empty)_                              | API origin injected into `/config.js`. Empty means same origin; set only to point the UI at another host. |
+| `VITE_STREAMAPI_PREFIX` | `/v1/api`                            | API path prefix injected into `/config.js`.      |
+| `VITE_STREAMAPI_PREFIX_ADMIN` | `/dashboard`                     | Admin route prefix injected into `/config.js`.   |
+| `VITE_DEFAULT_NEXT_EPISODE_OFFSET` | `15`                          | Next-episode countdown in seconds.               |
 
 ## Running locally
 
@@ -80,19 +90,85 @@ go mod download
 go run ./cmd/server
 ```
 
-The API will listen on `http://localhost:7777`.
+The API will listen on `http://localhost:7777`. If you run the API from source, the UI is the committed
+placeholder until you build it into `internal/web/dist` (or point `UI_DIR` at `web/dist`):
+
+```bash
+git submodule update --init --recursive
+(cd web && npm ci && npm run build)
+UI_DIR=./web/dist go run ./cmd/server
+```
 
 ## Running with Docker
 
+The default image is all-in-one: the Go binary serves the API, the UI and `/config.js` from one port.
+Two build files are provided: `Dockerfile` (all-in-one) and `Dockerfile.api` (API only).
+
 ```bash
+# The image refuses to start without a strong signing key.
+export JWT_SECRET_KEY=$(openssl rand -base64 48)
 docker compose up --build
 ```
 
-This starts both the API container and a MongoDB 8 instance, with persistent volumes for uploads and database data.
+Then open <http://localhost:7777>. MongoDB stays a separate service (the compose file starts it), with
+persistent volumes for uploads and database data.
+
+The UI source is a git submodule at `web/`, so clone with `--recursive` (or run
+`git submodule update --init` before `docker build`). The submodule commit pins the exact UI version
+baked into the image.
+
+### Deployment options
+
+| Option | What it runs | When to use |
+| --- | --- | --- |
+| All-in-one (default) | One container: UI + API (`Dockerfile`) | Normal self-hosting. One URL, no CORS, no version skew. |
+| API-only | One container: API only (`Dockerfile.api`) | Smallest artifact when the UI is served elsewhere. No Node/UI build stage, `SERVE_UI=false` baked in. |
+| Split images | `floxflix` API + the standalone `floxflix-ui` image | Scale or CDN the UI separately. Set `CORS_ORIGIN` and `VITE_STREAMAPI_URL` on the UI. |
+| `SERVE_UI=false` | Same all-in-one image, API only at runtime | When you want one artifact but the UI is served elsewhere. |
+
+Build the images directly without compose:
+
+```bash
+# All-in-one (UI + API)
+docker build -t floxflix:all-in-one .
+
+# API only
+docker build -t floxflix:api -f Dockerfile.api .
+
+docker run --rm -p 7777:7777 \
+  -e JWT_SECRET_KEY="$(openssl rand -base64 48)" \
+  -e MONGO_URI=mongodb://host.docker.internal:27017/floxflix \
+  -v floxflix-uploads:/app/uploads \
+  floxflix:all-in-one
+```
+
+The API-only image serves no UI: `/` and unknown non-API paths return JSON `404`, and `/config.js` is
+not registered. To run it with compose (on port 7778, so it can coexist with the default service):
+
+```bash
+export JWT_SECRET_KEY=$(openssl rand -base64 48)
+docker compose --profile api-only up api
+```
+
+### Published images
+
+Pushing a `v*` tag runs [`.github/workflows/release-images.yml`](./.github/workflows/release-images.yml), which builds both images for `linux/amd64` and `linux/arm64` and pushes them to GHCR:
+
+- `ghcr.io/<owner>/<repo>:<tag>` — all-in-one
+- `ghcr.io/<owner>/<repo>-api:<tag>` — API only
+
+For the `floxflix/floxflix` repository those are `ghcr.io/floxflix/floxflix` and `ghcr.io/floxflix/floxflix-api`. A `v1.2.3` tag produces `1.2.3`, `1.2`, `v1.2.3`, `sha-<short>` and `latest`; prerelease tags such as `v1.2.3-rc1` do not move `latest`.
+
+On first run there are no users: open `/register` (or `POST /v1/api/auth/register`) to create the first
+account, then log in.
+
+The container runs as non-root UID/GID `10001`. The named `uploads` volume inherits that ownership on
+first start; if you bind-mount an existing host directory instead, make it writable by that UID
+(`sudo chown -R 10001:10001 ./uploads`). Kubernetes deployments need a matching `fsGroup: 10001`.
 
 ## API
 
-All routes are mounted under the `/v1/api` prefix, except for the health probes which live under `/healthz`.
+All routes are mounted under the `/v1/api` prefix, except for the health probes which live under `/healthz`. The UI shell is served from `/`, hashed assets from `/assets/*`, and runtime UI configuration from `/config.js`.
 
 | Group     | Prefix                | Auth                     |
 | --------- | --------------------- | ------------------------ |
@@ -101,6 +177,7 @@ All routes are mounted under the `/v1/api` prefix, except for the health probes 
 | Users     | `/v1/api/users`       | JWT                      |
 | Viewers   | `/v1/api/viewers`     | JWT, scoped to caller    |
 | Videos    | `/v1/api/videos`      | Read public, write JWT   |
+| UI        | `/`, `/assets/*`, `/config.js` | Public          |
 
 The full machine-readable contract is in [`openapi.yml`](./openapi.yml). Open it with any OpenAPI viewer (Swagger UI, Redoc, Stoplight, etc.) to explore endpoints, request bodies and response schemas.
 
@@ -112,12 +189,14 @@ Errors are always JSON, never HTML, so clients can parse a single shape for ever
 { "status": "failed", "message": "Not found" }
 ```
 
-Requests that do not match any route are handled by a router-level fallback instead of chi's plain-text defaults:
+Requests that do not match a route are handled by a router-level fallback instead of chi's plain-text defaults. API paths (`/v1/api/*` and `/healthz*`) always keep the JSON shape below; other paths with `Accept: text/html` are served the SPA shell so client-side routes survive a reload.
 
 | Case                                            | Status | Message              |
 | ----------------------------------------------- | ------ | -------------------- |
-| Unknown path                                     | `404`  | `Not found`          |
-| Known path, method not registered for that route | `405`  | `Method not allowed` |
+| Unknown API path                                 | `404`  | `Not found`          |
+| Known API path, method not registered            | `405`  | `Method not allowed` |
+| Unknown UI path with `Accept: text/html`         | `200`  | SPA shell (`index.html`) |
+| Missing hashed asset (`/assets/*`)               | `404`  | plain 404            |
 
 ### Authentication
 

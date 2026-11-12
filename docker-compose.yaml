@@ -1,14 +1,41 @@
 services:
-  api:
-    build: .
+  floxflix:
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}
+    image: floxflix:all-in-one
     ports:
       - "7777:7777"
     environment:
-      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/floxflix}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-only-secret-not-for-production-use-32plus}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
-      - UPLOAD_FOLDER=${UPLOAD_FOLDER:-/app/uploads}
+      - MONGO_URI=mongodb://mongo:27017/floxflix
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?set JWT_SECRET_KEY, e.g. export JWT_SECRET_KEY=$(openssl rand -base64 48)}
+      - UPLOAD_FOLDER=/app/uploads
       - PORT=7777
+      - SERVE_UI=true
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    profiles: ["api-only"]
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        VERSION: ${VERSION:-dev}
+    image: floxflix:api
+    ports:
+      - "7778:7777"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/floxflix
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?set JWT_SECRET_KEY, e.g. export JWT_SECRET_KEY=$(openssl rand -base64 48)}
+      - UPLOAD_FOLDER=/app/uploads
+      - PORT=7777
+      - SERVE_UI=false
     volumes:
       - uploads:/app/uploads
     depends_on:
@@ -28,5 +55,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  mongo_data:
   uploads:
