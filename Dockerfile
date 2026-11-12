@@ -10,7 +10,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o flixflox ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o floxflix ./cmd/server
 
 FROM --platform=$PLATFORM alpine:3.23
 
@@ -18,10 +18,10 @@ RUN apk add --no-cache ffmpeg ca-certificates tzdata
 
 WORKDIR /app
 
-COPY --from=builder /build/flixflox .
+COPY --from=builder /build/floxflix .
 
 RUN mkdir -p /app/uploads
 
 EXPOSE 7777
 
-CMD ["/app/flixflox"]
+CMD ["/app/floxflix"]

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elvis/flixflox/internal/database"
-	"github.com/elvis/flixflox/internal/utils"
+	"github.com/elvis/floxflix/internal/database"
+	"github.com/elvis/floxflix/internal/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"

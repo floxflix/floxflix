@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: FlixFlox API
+  title: FloxFlix API
   description: |
     Self-hosted video streaming API. Manages users, viewer profiles and a
     movie/TV-show catalog, ingests source files and serves HLS streams.
   version: 1.0.0
   contact:
-    name: FlixFlox
+    name: FloxFlix
 servers:
   - url: http://localhost:7777
     description: Local development
@@ -766,7 +766,7 @@ components:
           example: healthy
         message:
           type: string
-          example: FlixFlox API
+          example: FloxFlix API
 
     ReadyStatus:
       allOf:

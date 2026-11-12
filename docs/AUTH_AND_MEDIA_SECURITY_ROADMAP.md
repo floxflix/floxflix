@@ -1,7 +1,7 @@
 # Roadmap — Authentication, authorization and media access control
 
 **Goal:** make "who may do what, and who may watch what" an enforced property of the server rather than
-an assumption about who can reach it. Today FlixFlox authenticates *some* requests, authorizes none of
+an assumption about who can reach it. Today FloxFlix authenticates *some* requests, authorizes none of
 them, and serves the entire media library to anyone who can open the port.
 
 Status: proposal / not implemented. Owner: @elvus.
@@ -115,7 +115,7 @@ paths — so plan a one-shot script and a read-time fallback.
 
 Every `http.SetCookie` in `auth.go` sets `Secure: true, SameSite: http.SameSiteNoneMode`. Browsers
 reject `Secure` cookies over plain `http://` (localhost excepted) — and `k8s/ingress.yaml` serves
-`http://api.flixflox.lan` with no TLS. On that deployment, cookie authentication silently does nothing;
+`http://api.floxflix.lan` with no TLS. On that deployment, cookie authentication silently does nothing;
 only the `Authorization` header path works.
 
 Make it `COOKIE_SECURE` / `COOKIE_SAMESITE`, default to secure, and document that a LAN HTTP
@@ -160,7 +160,7 @@ seeking in ways that look like player bugs, not auth bugs.
 
 ## 4. Phase 2 — CSRF and cookie hardening
 
-`SameSite: None` means the browser attaches FlixFlox cookies to cross-site requests, and
+`SameSite: None` means the browser attaches FloxFlix cookies to cross-site requests, and
 `middleware.CORS` sets `Access-Control-Allow-Credentials: true` unconditionally. For JSON endpoints the
 `Content-Type: application/json` preflight blocks the attack. **`POST /v1/api/videos/upload` is
 `multipart/form-data`** — a CORS-safelisted content type, so it is a *simple* request and is never
@@ -278,7 +278,7 @@ attribute playback to a viewer the server doesn't know about.
 | Rate limiting locks out a household behind one NAT IP | Limit per username primarily, per IP with a generous ceiling |
 | Signed URLs leak via referrer/history and stay valid until expiry | Short TTL, bind the signature to the viewer, never sign with the JWT secret |
 
-**Open questions:** is FlixFlox meant to be internet-facing, or LAN-only behind a VPN? The answer
+**Open questions:** is FloxFlix meant to be internet-facing, or LAN-only behind a VPN? The answer
 changes how much of §4 and §6 is worth building — but not §0, which is wrong either way. Should the
 public catalog stay public as a "browse before login" feature (then it needs its own trimmed
 projection, not the full documents)? And is `Privileges []string` or `Role string` the real model — both

@@ -1,4 +1,4 @@
-# FlixFlox
+# FloxFlix
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Go 1.26](https://img.shields.io/badge/Go-1.26-00add8?logo=go&logoColor=white)](https://go.dev/)
@@ -54,7 +54,7 @@ Configuration is loaded from environment variables. A starting point is provided
 
 | Variable           | Default                                  | Description                                      |
 | ------------------ | ---------------------------------------- | ------------------------------------------------ |
-| `MONGO_URI`        | `mongodb://localhost:27017/flixflox`     | MongoDB connection string                        |
+| `MONGO_URI`        | `mongodb://localhost:27017/floxflix`     | MongoDB connection string                        |
 | `JWT_SECRET_KEY`   | _(required)_                             | Secret used to sign JWTs. No default: the server refuses to start unless it is set and at least 32 bytes long. Generate one with `openssl rand -base64 48`. |
 | `CORS_ORIGIN`      | `http://localhost:5173`                  | Allowed CORS origin(s), comma-separated          |
 | `UPLOAD_FOLDER`    | `./uploads`                              | Directory for uploaded files and HLS output      |

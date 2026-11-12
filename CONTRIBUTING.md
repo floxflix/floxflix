@@ -1,4 +1,4 @@
-# Contributing to FlixFlox
+# Contributing to FloxFlix
 
 Thanks for your interest in contributing! This document explains how to get set up, the conventions the project follows, and how to submit changes.
 
@@ -13,8 +13,8 @@ Thanks for your interest in contributing! This document explains how to get set 
 ### Setup
 
 ```bash
-git clone https://github.com/elvis-segovia/flixflox.git
-cd flixflox
+git clone https://github.com/elvis-segovia/floxflix.git
+cd floxflix
 cp .env.example .env
 go mod download
 go run ./cmd/server
@@ -77,7 +77,7 @@ Common types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`.
 
 ### API changes
 
-If your change adds or modifies an endpoint, update [`openapi.yml`](./openapi.yml) in the same PR so the spec stays in sync with the implementation. Updating the Postman collection (`flixflox.postman_collection.json`) is appreciated but optional.
+If your change adds or modifies an endpoint, update [`openapi.yml`](./openapi.yml) in the same PR so the spec stays in sync with the implementation. Updating the Postman collection (`floxflix.postman_collection.json`) is appreciated but optional.
 
 ### Documentation
 

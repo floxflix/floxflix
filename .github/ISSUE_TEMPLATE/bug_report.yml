@@ -42,7 +42,7 @@ body:
   - type: dropdown
     id: run-mode
     attributes:
-      label: How are you running FlixFlox?
+      label: How are you running FloxFlix?
       options:
         - Docker Compose
         - Docker (standalone)
@@ -55,13 +55,13 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, Go version, FFmpeg version, MongoDB version, FlixFlox version/commit.
+      description: OS, Go version, FFmpeg version, MongoDB version, FloxFlix version/commit.
       placeholder: |
         - OS: Ubuntu 24.04
         - Go: 1.26.3
         - FFmpeg: 7.1
         - MongoDB: 8.0
-        - FlixFlox: commit 54af7c0
+        - FloxFlix: commit 54af7c0
     validations:
       required: true
   - type: textarea

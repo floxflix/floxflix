@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/elvis/flixflox/internal/config"
-	"github.com/elvis/flixflox/internal/database"
-	"github.com/elvis/flixflox/internal/handlers"
-	"github.com/elvis/flixflox/internal/middleware"
-	"github.com/elvis/flixflox/internal/queue"
+	"github.com/elvis/floxflix/internal/config"
+	"github.com/elvis/floxflix/internal/database"
+	"github.com/elvis/floxflix/internal/handlers"
+	"github.com/elvis/floxflix/internal/middleware"
+	"github.com/elvis/floxflix/internal/queue"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 )
@@ -64,7 +64,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("FlixFlox API server starting on :%s", cfg.Port)
+		log.Printf("FloxFlix API server starting on :%s", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}

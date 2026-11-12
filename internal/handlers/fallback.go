@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/elvis/flixflox/internal/utils"
+	"github.com/elvis/floxflix/internal/utils"
 	"github.com/go-chi/chi/v5"
 )
 

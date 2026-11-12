@@ -9,10 +9,10 @@ services:
       - go-build-cache:/root/.cache/go-build
     command: sleep infinity
     environment:
-      - MONGO_URI=mongodb://mongo:27017/flixflox
+      - MONGO_URI=mongodb://mongo:27017/floxflix
       - JWT_SECRET_KEY=dev-only-secret-not-for-production-use-32plus
       - CORS_ORIGIN=http://localhost:5173
-      - UPLOAD_FOLDER=/workspaces/flixflox/uploads
+      - UPLOAD_FOLDER=/workspaces/floxflix/uploads
       - PORT=7777
     depends_on:
       mongo:

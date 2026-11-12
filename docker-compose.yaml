@@ -4,7 +4,7 @@ services:
     ports:
       - "7777:7777"
     environment:
-      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/flixflox}
+      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/floxflix}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-only-secret-not-for-production-use-32plus}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
       - UPLOAD_FOLDER=${UPLOAD_FOLDER:-/app/uploads}

@@ -23,4 +23,4 @@ RUN go install golang.org/x/tools/gopls@latest \
     && go install honnef.co/go/tools/cmd/staticcheck@latest \
     && go install github.com/air-verse/air@latest
 
-WORKDIR /workspaces/flixflox
+WORKDIR /workspaces/floxflix

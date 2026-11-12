@@ -1,8 +1,8 @@
 # Roadmap — All-in-one image (UI + API)
 
 **Goal:** one container image, one port, one `docker run` — the Go API and the React admin/player UI
-served from the same origin, configured entirely by environment variables. Today FlixFlox ships as two
-images from two repositories (`flixflox` here, `flixflox-ui` in [`streamadmin`](https://github.com/elvus/streamadmin)),
+served from the same origin, configured entirely by environment variables. Today FloxFlix ships as two
+images from two repositories (`floxflix` here, `floxflix-ui` in [`streamadmin`](https://github.com/elvus/streamadmin)),
 which means two deployments, two ingress hosts, a CORS allowlist to keep in sync, and a version skew
 nobody tracks.
 
@@ -27,7 +27,7 @@ Three ways to put two things in one image:
 no prefix collision to design around, so the SPA fallback is a `NotFound` handler and nothing more.
 
 ```
-                     ┌──────────────── flixflox:all-in-one ────────────────┐
+                     ┌──────────────── floxflix:all-in-one ────────────────┐
                      │                                                     │
   browser ──:7777──▶ │  chi router                                         │
                      │   ├─ /healthz, /healthz/ready      → handlers       │
@@ -186,18 +186,18 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=ui /ui/dist ./internal/web/dist
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o flixflox ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o floxflix ./cmd/server
 
 # 3. Runtime
 FROM alpine:3.23.4
 RUN apk add --no-cache ffmpeg ca-certificates tzdata
 WORKDIR /app
-COPY --from=builder /build/flixflox .
-RUN mkdir -p /app/uploads && adduser -D -u 10001 flixflox && chown -R flixflox /app
-USER flixflox
+COPY --from=builder /build/floxflix .
+RUN mkdir -p /app/uploads && adduser -D -u 10001 floxflix && chown -R floxflix /app
+USER floxflix
 EXPOSE 7777
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:7777/healthz || exit 1
-CMD ["./flixflox"]
+CMD ["./floxflix"]
 ```
 
 Notes that matter:
@@ -249,11 +249,11 @@ Also extend `.dockerignore` — the UI subtree brings `node_modules/` (260 entri
 
 ```yaml
 services:
-  flixflox:
-    image: elvus/flixflox:1.1.0        # UI + API
+  floxflix:
+    image: elvus/floxflix:1.1.0        # UI + API
     ports: ["7777:7777"]
     environment:
-      - MONGO_URI=mongodb://mongo:27017/flixflox
+      - MONGO_URI=mongodb://mongo:27017/floxflix
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:?set me}
       - UPLOAD_FOLDER=/app/uploads
       - PORT=7777
@@ -268,7 +268,7 @@ boot with a default signing key, not silently accept one.
 ### 6.2 Kubernetes
 
 `k8s/` currently describes the API alone: one `Deployment` on port 7777, a `Service`, and an `Ingress`
-for `api.flixflox.lan`. The all-in-one collapses the (undocumented, presumably separate) UI deployment
+for `api.floxflix.lan`. The all-in-one collapses the (undocumented, presumably separate) UI deployment
 into it, and the ingress drops to a single host serving both — keep
 `nginx.ingress.kubernetes.io/proxy-body-size: "0"`, it's what makes 2 GB uploads survive the ingress.
 
@@ -332,7 +332,7 @@ Tempting — it would make the image a literal single `docker run` — and wrong
 - the image roughly doubles in size for something `docker compose` already solves in five lines.
 
 Ship the compose file as the one-command experience instead. If a truly self-contained image is ever
-wanted, the honest version is a separate `flixflox:standalone` tag with an embedded database and a loud
+wanted, the honest version is a separate `floxflix:standalone` tag with an embedded database and a loud
 "development and evaluation only" banner — and a `MONGO_URI` that still overrides it.
 
 ---
@@ -352,15 +352,15 @@ wanted, the honest version is a separate `flixflox:standalone` tag with an embed
 | Users read this as "the standalone UI image is dead" | Keep publishing it; say so in the README table |
 
 **Open questions:** submodule or monorepo — is folding `streamadmin` into this repo on the table, since
-it makes every problem in §3 disappear? Should the all-in-one take over the `elvus/flixflox` tag, or
-live at `elvus/flixflox-aio` until it's proven? And does anyone actually run the UI and API on separate
+it makes every problem in §3 disappear? Should the all-in-one take over the `elvus/floxflix` tag, or
+live at `elvus/floxflix-aio` until it's proven? And does anyone actually run the UI and API on separate
 hosts today, or is the split purely historical?
 
 ---
 
 ## 11. Suggested sequencing
 
-**MVP (Phases 0–2):** `docker run -p 7777:7777 -e MONGO_URI=… elvus/flixflox` opens the login page and
+**MVP (Phases 0–2):** `docker run -p 7777:7777 -e MONGO_URI=… elvus/floxflix` opens the login page and
 streams a video. Everything after is polish.
 
 1. Phase 0 — SPA fallback, `/config.js` handler, read-timeout fix, port cleanup. *API-only change,
@@ -381,4 +381,4 @@ strictly less machinery than the entrypoint script it replaces.
 - [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) — shares the §0.3 read-timeout prerequisite
 - [`go:embed`](https://pkg.go.dev/embed) · [`http.ServeFileFS`](https://pkg.go.dev/net/http#ServeFileFS)
 - [Docker — multi-platform builds](https://docs.docker.com/build/building/multi-platform/)
-- UI repository: `streamadmin` (`flixflox-ui`) — `src/env.ts`, `docker-entrypoint.sh`, `config/default.conf`
+- UI repository: `streamadmin` (`floxflix-ui`) — `src/env.ts`, `docker-entrypoint.sh`, `config/default.conf`

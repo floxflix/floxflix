@@ -1,4 +1,4 @@
-module github.com/elvis/flixflox
+module github.com/elvis/floxflix
 
 go 1.26.3
 

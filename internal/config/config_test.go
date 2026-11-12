@@ -111,7 +111,7 @@ func TestLoad_SameSiteNoneRequiresSecure(t *testing.T) {
 }
 
 func TestLoad_PlainHTTPCombo(t *testing.T) {
-	// The k8s ingress path: http://api.flixflox.lan with no TLS.
+	// The k8s ingress path: http://api.floxflix.lan with no TLS.
 	t.Setenv("JWT_SECRET_KEY", testJWTSecret)
 	t.Setenv("COOKIE_SECURE", "false")
 	t.Setenv("COOKIE_SAMESITE", "lax")

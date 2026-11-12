@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/elvis/flixflox/internal/config"
-	"github.com/elvis/flixflox/internal/database"
-	"github.com/elvis/flixflox/internal/storage"
+	"github.com/elvis/floxflix/internal/config"
+	"github.com/elvis/floxflix/internal/database"
+	"github.com/elvis/floxflix/internal/storage"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"

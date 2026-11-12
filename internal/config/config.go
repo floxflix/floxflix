@@ -51,7 +51,7 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		MongoURI:        getEnv("MONGO_URI", "mongodb://localhost:27017/flixflox"),
+		MongoURI:        getEnv("MONGO_URI", "mongodb://localhost:27017/floxflix"),
 		JWTSecret:       []byte(jwtKey),
 		CORSOrigins:     strings.Split(getEnv("CORS_ORIGIN", "http://localhost:5173"), ","),
 		UploadFolder:    getEnv("UPLOAD_FOLDER", "./uploads"),

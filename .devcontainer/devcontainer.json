@@ -1,13 +1,13 @@
 {
-  "name": "flixflox",
+  "name": "floxflix",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/workspaces/flixflox",
+  "workspaceFolder": "/workspaces/floxflix",
   "remoteUser": "root",
   "forwardPorts": [7777, 27017],
   "portsAttributes": {
     "7777": {
-      "label": "FlixFlox API",
+      "label": "FloxFlix API",
       "onAutoForward": "notify"
     },
     "27017": {

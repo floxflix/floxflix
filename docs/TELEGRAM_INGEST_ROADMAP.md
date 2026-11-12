@@ -1,6 +1,6 @@
-# Roadmap — Telegram ingestion for FlixFlox
+# Roadmap — Telegram ingestion for FloxFlix
 
-**Goal:** send a video file (or a link) to a Telegram bot, and have the FlixFlox server pick it up,
+**Goal:** send a video file (or a link) to a Telegram bot, and have the FloxFlix server pick it up,
 store it, transcode it to HLS through the existing conversion queue, and publish it in the catalog —
 with progress and completion reported back in the chat.
 
@@ -34,7 +34,7 @@ telegram-bot-api container  ──writes──▶  bot_api_data volume
       │ long-poll getUpdates                    │ (mounted at the SAME path
       │ getFile → /var/lib/telegram-bot-api/...  │  in both containers)
       ▼                                          ▼
-FlixFlox api container ── os.Rename ──▶ uploads/<Title>/S01/E02/source.mkv
+FloxFlix api container ── os.Rename ──▶ uploads/<Title>/S01/E02/source.mkv
       │
       ├─ ingest.FromFile() → upsert catalog item / season / episode (status In-Progress)
       ├─ queue.Add(Job) → ffmpeg → HLS + thumbnail → status Ready

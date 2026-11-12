@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/elvis/flixflox/internal/database"
-	"github.com/elvis/flixflox/internal/utils"
+	"github.com/elvis/floxflix/internal/database"
+	"github.com/elvis/floxflix/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
@@ -31,7 +31,7 @@ func handleHealth(client *mongo.Client) http.HandlerFunc {
 
 		utils.JSON(w, code, map[string]any{
 			"status":  status,
-			"message": "FlixFlox API",
+			"message": "FloxFlix API",
 		})
 	}
 }
@@ -60,7 +60,7 @@ func handleReady(client *mongo.Client) http.HandlerFunc {
 
 		utils.JSON(w, code, map[string]any{
 			"status":    status,
-			"message":   "FlixFlox API",
+			"message":   "FloxFlix API",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 		})
 	}
