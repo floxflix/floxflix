@@ -2,8 +2,12 @@ openapi: 3.0.3
 info:
   title: FloxFlix API
   description: |
-    Self-hosted video streaming API. Manages users, viewer profiles and a
-    movie/TV-show catalog, ingests source files and serves HLS streams.
+    Self-hosted video streaming API. Manages users, viewer profiles, genres,
+    cast and a movie/TV-show catalog, ingests source files and serves HLS
+    streams.
+
+    Unless a path says otherwise, every media path in a request or response is
+    relative to `UPLOAD_FOLDER`.
   version: 1.0.0
   contact:
     name: FloxFlix
@@ -18,6 +22,16 @@ tags:
   - name: Viewers
   - name: Videos
   - name: Queue
+  - name: Genres
+  - name: Cast
+  - name: UI
+  - name: Bot
+    description: |
+      Unauthenticated ingest routes for an external bot that writes source files
+      straight into `UPLOAD_FOLDER` and then registers them. They reuse the
+      handlers behind the protected catalog routes. Anyone who can reach them can
+      write to the catalog and queue FFmpeg work, so keep them off public
+      networks.
 
 security:
   - bearerAuth: []
@@ -542,6 +556,33 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /v1/api/videos/image/{path}:
+    get:
+      tags: [Videos]
+      summary: Serve a poster or background image
+      description: |
+        `path` is the relative path inside `UPLOAD_FOLDER`, as stored in a
+        catalog item's `bg_image`. Paths that escape the upload root are
+        rejected. An explicit image Content-Type is set for `.jpg`, `.jpeg` and
+        `.png`; other extensions are served with Go's sniffed type.
+      security: []
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image contents
+          content:
+            image/jpeg: {}
+            image/png: {}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /v1/api/videos/upload:
     post:
       tags: [Videos]
@@ -580,16 +621,40 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   /v1/api/videos/{id}/new-episode:
+    post:
+      tags: [Videos]
+      summary: Register an already-uploaded episode of an existing TV show
+      description: |
+        The source file is already inside `UPLOAD_FOLDER`; the body names it with
+        an upload-root-relative `file_path`. The path is resolved before anything
+        is written, so a bad path fails the request instead of leaving the
+        episode stuck `In-Progress`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EpisodeRegistration'
+      responses:
+        '201':
+          description: Episode created and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodeQueuedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Videos]
-      summary: Add a new episode to an existing TV show
+      summary: Upload a new episode for an existing TV show
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/CatalogUUID'
       requestBody:
         required: true
         content:
@@ -618,11 +683,58 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /v1/api/videos/{uuid}/season/{season}/episode/{episode}:
+    put:
+      tags: [Videos]
+      summary: Patch the metadata of a single episode
+      description: |
+        Updates one episode in place. Only non-empty fields in the body are
+        applied; the episode's media is untouched.
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Catalog item UUID
+          schema:
+            type: string
+            format: uuid
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: episode
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Episode'
+      responses:
+        '200':
+          description: Episode updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /v1/api/videos/queue/info:
     get:
       tags: [Queue]
       summary: Conversion queue snapshot
-      security: []
+      description: |
+        Job paths are reduced to their base filename and error messages are
+        truncated to the tail of the FFmpeg output.
       responses:
         '200':
           description: Queue info
@@ -631,6 +743,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /v1/api/videos/queue/start:
     post:
@@ -666,6 +780,339 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /config.js:
+    get:
+      tags: [UI]
+      summary: Runtime configuration for the SPA
+      description: |
+        A JavaScript snippet assigning `window._env_`, read by the UI at boot so
+        one built image can be reconfigured per deployment. Registered only when
+        `SERVE_UI=true`; the API-only image does not serve it.
+      security: []
+      responses:
+        '200':
+          description: JavaScript assigning window._env_
+          content:
+            application/javascript:
+              schema:
+                type: string
+              example: |
+                window._env_ = {
+                  "VITE_STREAMAPI_URL": "",
+                  "VITE_STREAMAPI_PREFIX": "/v1/api",
+                  "VITE_STREAMAPI_PREFIX_ADMIN": "/dashboard",
+                  "VITE_DEFAULT_NEXT_EPISODE_OFFSET": "15"
+                };
+
+  /v1/api/genres:
+    get:
+      tags: [Genres]
+      summary: List genres
+      responses:
+        '200':
+          description: Genres
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Genre'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Genres]
+      summary: Create a genre
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenreRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/api/genres/{id}:
+    get:
+      tags: [Genres]
+      summary: Get a genre
+      parameters:
+        - $ref: '#/components/parameters/ObjectId'
+      responses:
+        '200':
+          description: Genre
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  genre:
+                    $ref: '#/components/schemas/Genre'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Genres]
+      summary: Update a genre
+      parameters:
+        - $ref: '#/components/parameters/ObjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenreRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Genres]
+      summary: Delete a genre
+      parameters:
+        - $ref: '#/components/parameters/ObjectId'
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/api/cast:
+    get:
+      tags: [Cast]
+      summary: List cast members
+      responses:
+        '200':
+          description: Cast members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CastMember'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Cast]
+      summary: Create a cast member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CastRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/api/cast/{id}:
+    get:
+      tags: [Cast]
+      summary: Get a cast member
+      parameters:
+        - $ref: '#/components/parameters/ObjectId'
+      responses:
+        '200':
+          description: |
+            Cast member. Note the payload key is `genre`, not `cast` — the
+            handler reuses the genre response shape.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  genre:
+                    $ref: '#/components/schemas/CastMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Cast]
+      summary: Update a cast member
+      parameters:
+        - $ref: '#/components/parameters/ObjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CastRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Cast]
+      summary: Delete a cast member
+      parameters:
+        - $ref: '#/components/parameters/ObjectId'
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/api/bot/videos:
+    post:
+      tags: [Bot]
+      summary: Register an already-uploaded title (no auth)
+      description: Same handler as `POST /v1/api/videos`, without authentication.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogItem'
+      responses:
+        '201':
+          description: Created and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogQueuedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/api/bot/videos/{id}/new-episode:
+    post:
+      tags: [Bot]
+      summary: Register an already-uploaded episode (no auth)
+      description: |
+        Same handler as `POST /v1/api/videos/{id}/new-episode`, without
+        authentication.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CatalogUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EpisodeRegistration'
+      responses:
+        '201':
+          description: Episode created and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodeQueuedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/api/bot/titles:
+    get:
+      tags: [Bot]
+      summary: Search catalog titles (no auth)
+      description: |
+        Case-insensitive regex match on `title`, used to find the show an
+        episode should be appended to.
+      security: []
+      parameters:
+        - name: title
+          in: query
+          required: true
+          description: Substring to match; the match is a regex, not an exact title.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching catalog items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatalogItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/api/bot/genres:
+    get:
+      tags: [Bot]
+      summary: List genres (no auth)
+      description: Same handler as `GET /v1/api/genres`, without authentication.
+      security: []
+      responses:
+        '200':
+          description: Genres
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Genre'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -689,6 +1136,21 @@ components:
       name: uuid
       in: path
       required: true
+      schema:
+        type: string
+        format: uuid
+    ObjectId:
+      name: id
+      in: path
+      required: true
+      description: Mongo ObjectID (24-character hex)
+      schema:
+        type: string
+    CatalogUUID:
+      name: id
+      in: path
+      required: true
+      description: Catalog item UUID
       schema:
         type: string
         format: uuid
@@ -944,13 +1406,125 @@ components:
           type: number
         file_path:
           type: string
+          description: |
+            Relative to the upload root. Holds the source file until conversion
+            finishes, then the generated `.m3u8` playlist.
+        thumbail_path:
+          type: string
+          description: Relative to the upload root. (Spelled `thumbail_path` in the API.)
         status:
+          type: string
+        skip_intro_display_message:
           type: string
         intro_start_time:
           type: string
         intro_end_time:
           type: string
         next_episode_time:
+          type: string
+
+    EpisodeRegistration:
+      allOf:
+        - $ref: '#/components/schemas/Episode'
+        - type: object
+          required: [season, episode_number, file_path]
+          properties:
+            season:
+              type: integer
+              description: Season this episode belongs to.
+
+    EpisodeQueuedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        uuid:
+          type: string
+          format: uuid
+          description: UUID of the show the episode was added to.
+        season:
+          type: integer
+        episode:
+          type: integer
+        queued:
+          type: integer
+          description: Number of conversion jobs pushed onto the queue.
+
+    CatalogQueuedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        id:
+          type: string
+          format: uuid
+          description: UUID of the new catalog item.
+        queued:
+          type: integer
+          description: Number of conversion jobs pushed onto the queue.
+
+    Genre:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Mongo ObjectID
+        uuid:
+          type: string
+          format: uuid
+        genre:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    GenreRequest:
+      type: object
+      required: [genre]
+      properties:
+        genre:
+          type: string
+
+    CastMember:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Mongo ObjectID
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        birth_date:
+          type: string
+        nationality:
+          type: string
+        gender:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CastRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        birth_date:
+          type: string
+        nationality:
+          type: string
+        gender:
           type: string
 
     Season:
@@ -994,6 +1568,15 @@ components:
         duration_seconds:
           type: number
         file_path:
+          type: string
+          description: |
+            Relative to the upload root. Holds the source file until conversion
+            finishes, then the generated `.m3u8` playlist. Movies only — a show
+            carries one per episode.
+        bg_image:
+          type: string
+          description: Poster/background path, relative to the upload root.
+        skip_intro_display_message:
           type: string
         intro_start_time:
           type: string
