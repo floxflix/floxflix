@@ -14,6 +14,7 @@ services:
       - CORS_ORIGIN=http://localhost:5173
       - UPLOAD_FOLDER=/workspaces/floxflix/uploads
       - PORT=7777
+      - SERVE_UI=true
     depends_on:
       mongo:
         condition: service_healthy
