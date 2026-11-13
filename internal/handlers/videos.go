@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -315,6 +316,10 @@ func handleGetVideoDetails(client *mongo.Client) http.HandlerFunc {
 		if err != nil {
 			utils.Error(w, http.StatusNotFound, "Content not found")
 			return
+		}
+
+		if item.Type == "tvshow" {
+			sortSeasons(&item)
 		}
 
 		utils.Success(w, http.StatusOK, item)
@@ -1043,6 +1048,18 @@ func handleQueueCleanup(q *queue.ConversionQueue) http.HandlerFunc {
 		utils.Success(w, http.StatusOK, map[string]any{
 			"status":  "success",
 			"removed": removed,
+		})
+	}
+}
+
+func sortSeasons(item *models.CatalogItem) {
+	sort.Slice(item.Seasons, func(i, j int) bool {
+		return item.Seasons[i].SeasonNumber < item.Seasons[j].SeasonNumber
+	})
+	for s := range item.Seasons {
+		eps := item.Seasons[s].Episodes
+		sort.Slice(eps, func(i, j int) bool {
+			return eps[i].EpisodeNumber < eps[j].EpisodeNumber
 		})
 	}
 }

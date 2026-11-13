@@ -40,7 +40,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	setCacheHeaders(w, "index.html")
 	setSecurityHeaders(w, true)
-	http.ServeFileFS(w, r, h.fsys, "index.html")
+	http.ServeFileFS(w, r, Dist(), "index.html")
 }
 
 func assetName(urlPath string) string {

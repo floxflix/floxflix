@@ -15,6 +15,7 @@ services:
       - UPLOAD_FOLDER=/workspaces/floxflix/uploads
       - PORT=7777
       - SERVE_UI=true
+      - UI_DIR=./web/dist
     depends_on:
       mongo:
         condition: service_healthy
