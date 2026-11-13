@@ -2,19 +2,30 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/connstring"
 )
 
-const DatabaseName = "floxflix"
+var databaseName string
 
 func Connect(uri string) (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	cs, err := connstring.Parse(uri)
+	if err != nil {
+		return nil, fmt.Errorf("parse MongoDB URI: %w", err)
+	}
+	databaseName = cs.Database
+	if databaseName == "" {
+		return nil, fmt.Errorf("Invalid mongo MongoDB URI: Database name is empty")
+	}
 
 	client, err := mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
@@ -30,7 +41,7 @@ func Connect(uri string) (*mongo.Client, error) {
 }
 
 func Collection(client *mongo.Client, name string) *mongo.Collection {
-	return client.Database(DatabaseName).Collection(name)
+	return client.Database(databaseName).Collection(name)
 }
 
 func EnsureIndexes(client *mongo.Client) {
