@@ -349,6 +349,8 @@ func handleGetVideoBySeason(client *mongo.Client) http.HandlerFunc {
 			return
 		}
 
+		sortSeasons(&item)
+
 		for _, s := range item.Seasons {
 			if s.SeasonNumber == seasonNum {
 				utils.Success(w, http.StatusOK, s.Episodes)
