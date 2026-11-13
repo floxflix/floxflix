@@ -288,6 +288,10 @@ func handleListVideosByType(client *mongo.Client) http.HandlerFunc {
 			return
 		}
 
+		for i := range items {
+			sortSeasons(&items[i])
+		}
+
 		totalPages := (total + int64(perPage) - 1) / int64(perPage)
 
 		utils.Success(w, http.StatusOK, map[string]any{
