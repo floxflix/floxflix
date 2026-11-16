@@ -91,7 +91,7 @@ Common types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`.
 
 ### API changes
 
-If your change adds or modifies an endpoint, update [`openapi.yml`](./openapi.yml) in the same PR so the spec stays in sync with the implementation. Updating the Postman collection (`floxflix.postman_collection.json`) is appreciated but optional.
+If your change adds or modifies an endpoint, update [`openapi.yml`](./openapi.yml) in the same PR so the spec stays in sync with the implementation.
 
 ### Documentation
 

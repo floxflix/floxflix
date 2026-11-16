@@ -52,13 +52,12 @@ internal/web/        Embedded SPA assets (go:embed) and static-file handler
                                   baked in by the all-in-one Dockerfile
 web/                 UI git submodule (React + Vite)
 docs/                Design and roadmap notes (adaptive streaming, Telegram ingest, ...)
-.devcontainer/       VS Code dev container definition
+.devcontainer/       VS Code dev container (Go, Node, FFmpeg; builds the UI)
 .github/workflows/   GHCR release-images pipeline (runs on v* tags)
 Dockerfile           All-in-one image (UI + API)
 Dockerfile.api       API-only image
 docker-compose.yaml  API + MongoDB for local runs
 openapi.yml          OpenAPI 3.0 specification
-floxflix.postman_collection.json  Postman collection for the API
 ```
 
 `web/` is a submodule, so it is empty until `git submodule update --init --recursive`. The upload folder (`UPLOAD_FOLDER`, `./uploads` by default) is created at runtime and is not part of the repository; its layout is described under [Uploads and conversion](#uploads-and-conversion).
@@ -69,7 +68,7 @@ Configuration is loaded from environment variables. A starting point is provided
 
 | Variable           | Default                                  | Description                                      |
 | ------------------ | ---------------------------------------- | ------------------------------------------------ |
-| `MONGO_URI`        | `mongodb://localhost:27017/floxflix`     | MongoDB connection string                        |
+| `MONGO_URI`        | `mongodb://localhost:27017/floxflix`     | MongoDB connection string. The database name comes from the URI path and is required — a URI without one is rejected at startup. |
 | `JWT_SECRET_KEY`   | _(required)_                             | Secret used to sign JWTs. No default: the server refuses to start unless it is set and at least 32 bytes long. Generate one with `openssl rand -base64 48`. |
 | `CORS_ORIGIN`      | _(empty)_                                | Allowed CORS origin(s), comma-separated. Empty disables the middleware; the all-in-one image is same-origin so it needs nothing here. |
 | `UPLOAD_FOLDER`    | `./uploads`                              | Directory for uploaded files and HLS output      |
@@ -109,6 +108,10 @@ git submodule update --init --recursive
 (cd web && npm ci && npm run build)
 UI_DIR=./web/dist go run ./cmd/server
 ```
+
+A VS Code dev container is included in `.devcontainer/`. It installs Go, Node and FFmpeg, builds the UI in
+`web/dist` on create, and starts the API with `SERVE_UI=true` and `UI_DIR=./web/dist`, so the UI is served
+from the same port in development as in the all-in-one image.
 
 ## Running with Docker
 
@@ -225,7 +228,7 @@ All routes are mounted under the `/v1/api` prefix, except for the health probes 
 | Bot       | `/v1/api/bot`         | **None** — see [Bot ingest endpoints](#bot-ingest-endpoints) |
 | UI        | `/`, `/assets/*`, `/config.js` | Public          |
 
-[`openapi.yml`](./openapi.yml) is the machine-readable contract and covers every route listed above. Open it with any OpenAPI viewer (Swagger UI, Redoc, Stoplight, etc.) to explore endpoints, request bodies and response schemas, or import [`floxflix.postman_collection.json`](./floxflix.postman_collection.json) into Postman.
+[`openapi.yml`](./openapi.yml) is the machine-readable contract and covers every route listed above. Open it with any OpenAPI viewer (Swagger UI, Redoc, Stoplight, etc.) to explore endpoints, request bodies and response schemas.
 
 ### Error responses
 
@@ -267,6 +270,9 @@ Access tokens are rejected on the refresh route and refresh tokens are rejected 
 | `GET /v1/api/videos/{id}/details`              | One item with its full metadata           |
 | `GET /v1/api/videos/{id}/season/{season}`      | One season of a show, with its episodes   |
 
+Seasons and episodes are returned sorted by their numbers, so clients can rely on playback order without
+sorting the response themselves.
+
 ### Uploads and conversion
 
 There are two ways to get content into the catalog: **upload** the file through the API, or **register** a file that is already inside `UPLOAD_FOLDER`. Either way the files land in a fixed layout, and the paths stored in MongoDB (`file_path`, `bg_image`) are relative to the upload root. After conversion the queue rewrites `file_path` to the generated `.m3u8` playlist:
@@ -291,7 +297,7 @@ The file is saved to disk, a catalog entry is created, and a job is pushed onto 
 
 #### Register an existing file
 
-`POST /v1/api/videos` takes a JSON catalog item whose source paths are **relative to the upload root** and whose files are already on disk. The paths are resolved before anything is written, so a bad path fails the request instead of leaving an entry stuck `In-Progress`. The response carries the new item's `uuid` and the number of jobs queued:
+`POST /v1/api/videos` takes a JSON catalog item whose source paths are **relative to the upload root** and whose files are already on disk. The paths are resolved before anything is written, so a bad path fails the request instead of leaving an entry stuck `In-Progress`. The `id` in the response is the new item's UUID, alongside the number of jobs queued:
 
 ```json
 { "status": "success", "id": "6f1c…", "queued": 1 }
