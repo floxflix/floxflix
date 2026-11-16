@@ -15,7 +15,7 @@
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "go mod download",
+  "postCreateCommand": "go mod download && npm install --prefix web && npm run build --prefix web",
   "customizations": {
     "vscode": {
       "extensions": [
