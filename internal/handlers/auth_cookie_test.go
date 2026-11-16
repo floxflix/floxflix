@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/floxflix/floxflix/internal/config"
 )
@@ -97,4 +98,46 @@ func cookieHeaderHasAttr(header, attr string) bool {
 		}
 	}
 	return false
+}
+
+func TestSetAuthCookies_WritesBothTokens(t *testing.T) {
+	cfg := &config.Config{
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 24 * time.Hour,
+		CookieSecure:    true,
+		CookieSameSite:  http.SameSiteLaxMode,
+	}
+	rec := httptest.NewRecorder()
+
+	setAuthCookies(rec, cfg, "access-tok", "refresh-tok")
+
+	got := map[string]*http.Cookie{}
+	for _, c := range rec.Result().Cookies() {
+		got[c.Name] = c
+	}
+
+	access, ok := got["access_token"]
+	if !ok {
+		t.Fatal("missing access_token cookie")
+	}
+	if access.Value != "access-tok" {
+		t.Errorf("access_token = %q, want access-tok", access.Value)
+	}
+	if access.MaxAge != 900 {
+		t.Errorf("access_token MaxAge = %d, want 900", access.MaxAge)
+	}
+
+	refresh, ok := got["refresh_token"]
+	if !ok {
+		t.Fatal("missing refresh_token cookie")
+	}
+	if refresh.Value != "refresh-tok" {
+		t.Errorf("refresh_token = %q, want refresh-tok", refresh.Value)
+	}
+	if refresh.MaxAge != 86400 {
+		t.Errorf("refresh_token MaxAge = %d, want 86400", refresh.MaxAge)
+	}
+	if !refresh.HttpOnly || !refresh.Secure {
+		t.Errorf("refresh_token flags HttpOnly=%v Secure=%v, want both true", refresh.HttpOnly, refresh.Secure)
+	}
 }

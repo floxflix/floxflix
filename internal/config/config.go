@@ -62,6 +62,22 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("COOKIE_SAMESITE=none requires COOKIE_SECURE=true; browsers reject SameSite=None on non-secure cookies")
 	}
 
+	// Token lifetimes are configurable so a deployment can trade access-token
+	// freshness against how often clients must refresh. The refresh cookie is
+	// reissued on every refresh, so its TTL is the idle window after which a
+	// device has to log in again.
+	accessTokenTTL, err := parseDurationEnv("ACCESS_TOKEN_TTL", time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	refreshTokenTTL, err := parseDurationEnv("REFRESH_TOKEN_TTL", 24*time.Hour*30)
+	if err != nil {
+		return nil, err
+	}
+	if refreshTokenTTL <= accessTokenTTL {
+		return nil, fmt.Errorf("REFRESH_TOKEN_TTL (%s) must be longer than ACCESS_TOKEN_TTL (%s)", refreshTokenTTL, accessTokenTTL)
+	}
+
 	return &Config{
 		MongoURI:        getEnv("MONGO_URI", "mongodb://localhost:27017/floxflix"),
 		JWTSecret:       []byte(jwtKey),
@@ -72,8 +88,8 @@ func Load() (*Config, error) {
 		HLSSegmentTime:  getEnvInt("HLS_SEGMENT_TIME", 10),
 		HLSListSize:     getEnvInt("HLS_LIST_SIZE", 0),
 		HLSSegmentType:  getEnv("HLS_SEGMENT_TYPE", "fmp4"),
-		AccessTokenTTL:  time.Hour * 1,
-		RefreshTokenTTL: time.Hour * 24 * 30,
+		AccessTokenTTL:  accessTokenTTL,
+		RefreshTokenTTL: refreshTokenTTL,
 		CookieSecure:    cookieSecure,
 		CookieSameSite:  cookieSameSite,
 
@@ -130,6 +146,25 @@ func getEnvBool(key string, fallback bool) bool {
 		}
 	}
 	return fallback
+}
+
+// parseDurationEnv reads a Go duration (e.g. "1h", "720h") from the
+// environment. Unlike the numeric helpers above it reports malformed values
+// instead of silently falling back: a typo like "30d" would otherwise leave
+// tokens with the default lifetime while the operator believes otherwise.
+func parseDurationEnv(key string, fallback time.Duration) (time.Duration, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback, nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a Go duration such as 1h or 720h (got %q)", key, v)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("%s must be positive (got %q)", key, v)
+	}
+	return d, nil
 }
 
 func parseSameSite(v string) (http.SameSite, error) {

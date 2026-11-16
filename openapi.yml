@@ -109,7 +109,7 @@ paths:
           description: Login successful; sets access_token and refresh_token cookies
           headers:
             Set-Cookie:
-              description: access_token and refresh_token (HttpOnly, Secure, SameSite=None)
+              description: access_token and refresh_token (HttpOnly; Secure and SameSite follow COOKIE_SECURE / COOKIE_SAMESITE)
               schema:
                 type: string
           content:
@@ -147,11 +147,21 @@ paths:
   /v1/api/auth/token/refresh:
     post:
       tags: [Auth]
-      summary: Issue a new access token from a refresh token
-      description: Requires a valid refresh token (cookie or Authorization header).
+      summary: Rotate the session and issue new access and refresh tokens
+      description: >-
+        Requires a valid refresh token (cookie or Authorization header). Sets
+        fresh access_token and refresh_token cookies; the refresh cookie's
+        Max-Age restarts, so an active client keeps extending its session up to
+        REFRESH_TOKEN_TTL after its last refresh. The refresh token presented in
+        the request is not revoked and remains valid until it expires.
       responses:
         '200':
-          description: New access token issued
+          description: New access and refresh tokens issued
+          headers:
+            Set-Cookie:
+              description: Refreshed access_token and refresh_token (HttpOnly)
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -161,6 +171,8 @@ paths:
                     type: string
                     example: success
                   access_token:
+                    type: string
+                  refresh_token:
                     type: string
         '401':
           $ref: '#/components/responses/Unauthorized'

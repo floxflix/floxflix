@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"
@@ -185,5 +186,80 @@ func TestParseSameSite(t *testing.T) {
 	_, err := parseSameSite("  lax  ")
 	if err != nil {
 		t.Fatalf("parseSameSite(padded lax) error: %v", err)
+	}
+}
+
+func TestLoad_TokenTTLDefaults(t *testing.T) {
+	t.Setenv("JWT_SECRET_KEY", testJWTSecret)
+	t.Setenv("ACCESS_TOKEN_TTL", "")
+	t.Setenv("REFRESH_TOKEN_TTL", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if cfg.AccessTokenTTL != time.Hour {
+		t.Errorf("AccessTokenTTL = %s, want 1h", cfg.AccessTokenTTL)
+	}
+	if cfg.RefreshTokenTTL != 24*time.Hour*30 {
+		t.Errorf("RefreshTokenTTL = %s, want 720h", cfg.RefreshTokenTTL)
+	}
+}
+
+func TestLoad_TokenTTLFromEnv(t *testing.T) {
+	t.Setenv("JWT_SECRET_KEY", testJWTSecret)
+	t.Setenv("ACCESS_TOKEN_TTL", "15m")
+	t.Setenv("REFRESH_TOKEN_TTL", "2160h")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if cfg.AccessTokenTTL != 15*time.Minute {
+		t.Errorf("AccessTokenTTL = %s, want 15m", cfg.AccessTokenTTL)
+	}
+	if cfg.RefreshTokenTTL != 2160*time.Hour {
+		t.Errorf("RefreshTokenTTL = %s, want 2160h", cfg.RefreshTokenTTL)
+	}
+}
+
+func TestLoad_TokenTTLInvalid(t *testing.T) {
+	cases := []struct {
+		key   string
+		value string
+	}{
+		{"ACCESS_TOKEN_TTL", "30d"}, // Go durations use h, not d
+		{"ACCESS_TOKEN_TTL", "1 hour"},
+		{"ACCESS_TOKEN_TTL", "0s"},
+		{"REFRESH_TOKEN_TTL", "-1h"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
+			t.Setenv("JWT_SECRET_KEY", testJWTSecret)
+			t.Setenv(tc.key, tc.value)
+
+			_, err := Load()
+			if err == nil {
+				t.Fatalf("Load() error = nil, want error for %s=%q", tc.key, tc.value)
+			}
+			if !strings.Contains(err.Error(), tc.key) {
+				t.Errorf("error %q does not mention %s", err, tc.key)
+			}
+		})
+	}
+}
+
+func TestLoad_RefreshTTLMustExceedAccess(t *testing.T) {
+	t.Setenv("JWT_SECRET_KEY", testJWTSecret)
+	t.Setenv("ACCESS_TOKEN_TTL", "2h")
+	t.Setenv("REFRESH_TOKEN_TTL", "1h")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil, want error when refresh TTL <= access TTL")
+	}
+	if !strings.Contains(err.Error(), "REFRESH_TOKEN_TTL") {
+		t.Errorf("error %q does not explain the refresh/access TTL relation", err)
 	}
 }

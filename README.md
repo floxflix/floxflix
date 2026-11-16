@@ -79,6 +79,8 @@ Configuration is loaded from environment variables. A starting point is provided
 | `MAX_FILE_SIZE`    | `2147483648`                             | Max upload size in bytes (default 2 GiB)         |
 | `COOKIE_SECURE`    | `true`                                   | Auth cookie `Secure` flag. Set `false` for plain-HTTP LAN deploys (browsers drop `Secure` cookies over `http://` except localhost). TLS in front of the API is the better answer. |
 | `COOKIE_SAMESITE`  | `lax`                                    | Auth cookie `SameSite` (`lax`, `strict`, or `none`). `none` requires `COOKIE_SECURE=true`. |
+| `ACCESS_TOKEN_TTL` | `1h`                                     | Access-token (and cookie) lifetime, as a Go duration (`1h`, `30m`). |
+| `REFRESH_TOKEN_TTL` | `720h`                                  | Refresh-token (and cookie) lifetime, as a Go duration (`720h`, `2160h`). The refresh cookie is reissued on every refresh, so this is the idle window before a device must log in again. Must be longer than `ACCESS_TOKEN_TTL`. |
 | `SERVE_UI`         | `true`                                   | Serve the embedded UI. Set `false` for API-only mode from the same image. |
 | `UI_DIR`           | _(unset)_                                | Serve the SPA from this directory instead of the embedded build (local UI iteration). |
 | `VITE_STREAMAPI_URL` | _(empty)_                              | API origin injected into `/config.js`. Empty means same origin; set only to point the UI at another host. |
@@ -251,7 +253,7 @@ Requests that do not match a route are handled by a router-level fallback instea
 
 `POST /v1/api/auth/login` and `POST /v1/api/auth/register` are public. They set `access_token` and `refresh_token` HTTP-only cookies and also return the tokens in the JSON body so non-browser clients can use the `Authorization: Bearer <token>` header.
 
-`POST /v1/api/auth/token/refresh` requires a valid refresh token. Logout (`DELETE /v1/api/auth/logout`) blacklists the current token's `jti`. `GET /v1/api/auth/check` validates the current access token and returns the caller's account.
+`POST /v1/api/auth/token/refresh` requires a valid refresh token and rotates the session: it sets fresh `access_token` and `refresh_token` cookies (the refresh cookie's `Max-Age` restarts) and returns both tokens in the body. The presented refresh token is not revoked, so concurrent refreshes from multiple tabs do not invalidate each other. Logout (`DELETE /v1/api/auth/logout`) blacklists the current access token's `jti` and clears both cookies. `GET /v1/api/auth/check` validates the current access token and returns the caller's account.
 
 Access tokens are rejected on the refresh route and refresh tokens are rejected on protected routes, so the two are not interchangeable.
 

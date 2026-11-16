@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ACCESS_TOKEN_TTL` and `REFRESH_TOKEN_TTL` make token lifetimes configurable
+  (Go durations; defaults unchanged at `1h` and `720h`). Malformed values fail
+  startup instead of silently falling back to the defaults.
+
 ### Changed
 
+- `POST /v1/api/auth/token/refresh` rotates the session: it issues a new refresh
+  token alongside the access token and resets both cookies, so a device in
+  regular use no longer has to log in 30 days after its first login. The
+  response now also carries `refresh_token`. The token presented on the request
+  is not revoked, so parallel tabs refreshing at the same time don't invalidate
+  each other.
 - Dev container builds the UI on creation
   (`go mod download && npm install --prefix web && npm run build --prefix web`).
   Together with the `SERVE_UI=true` and `UI_DIR=./web/dist` it already sets, the

@@ -78,8 +78,7 @@ func handleLogin(client *mongo.Client, cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		http.SetCookie(w, newAuthCookie(cfg, "access_token", accessToken, int(cfg.AccessTokenTTL.Seconds())))
-		http.SetCookie(w, newAuthCookie(cfg, "refresh_token", refreshToken, int(cfg.RefreshTokenTTL.Seconds())))
+		setAuthCookies(w, cfg, accessToken, refreshToken)
 
 		utils.Success(w, http.StatusOK, map[string]any{
 			"status":        "success",
@@ -210,11 +209,25 @@ func handleRefreshToken(client *mongo.Client, cfg *config.Config) http.HandlerFu
 			return
 		}
 
-		http.SetCookie(w, newAuthCookie(cfg, "access_token", accessToken, int(cfg.AccessTokenTTL.Seconds())))
+		refreshToken, err := middleware.GenerateRefreshToken(
+			cfg.JWTSecret, user.ID.Hex(), user.UUID, cfg.RefreshTokenTTL,
+		)
+		if err != nil {
+			utils.Error(w, http.StatusInternalServerError, "Failed to generate refresh token")
+			return
+		}
+
+		// Reissue both cookies: the refresh cookie's MaxAge restarts, so a
+		// device that keeps using the app slides its session forward instead
+		// of expiring 30 days after the original login. The token presented on
+		// this request is not blacklisted — concurrent tabs would race each
+		// other's refresh, and the app serializes refreshes client-side.
+		setAuthCookies(w, cfg, accessToken, refreshToken)
 
 		utils.Success(w, http.StatusOK, map[string]any{
-			"status":       "success",
-			"access_token": accessToken,
+			"status":        "success",
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
 		})
 	}
 }
@@ -277,6 +290,14 @@ func handleAuthCheck(client *mongo.Client) http.HandlerFunc {
 			"user":          user.ToResponse(),
 		})
 	}
+}
+
+// setAuthCookies writes the access and refresh cookies with their configured
+// lifetimes. Login and refresh share it so a rotated session always ends up
+// with both cookies in the same shape.
+func setAuthCookies(w http.ResponseWriter, cfg *config.Config, accessToken, refreshToken string) {
+	http.SetCookie(w, newAuthCookie(cfg, "access_token", accessToken, int(cfg.AccessTokenTTL.Seconds())))
+	http.SetCookie(w, newAuthCookie(cfg, "refresh_token", refreshToken, int(cfg.RefreshTokenTTL.Seconds())))
 }
 
 func newAuthCookie(cfg *config.Config, name, value string, maxAge int) *http.Cookie {
