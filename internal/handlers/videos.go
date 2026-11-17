@@ -444,6 +444,7 @@ func handleStream(cfg *config.Config) http.HandlerFunc {
 			utils.Error(w, http.StatusBadRequest, fmt.Sprintf("Invalid file path %v", err))
 			return
 		}
+		defer root.Close()
 
 		relPath := filepath.Clean(chi.URLParam(r, "*"))
 		if relPath == "." || filepath.IsAbs(relPath) {
@@ -476,6 +477,7 @@ func handleBgImage(cfg *config.Config) http.HandlerFunc {
 			utils.Error(w, http.StatusBadRequest, fmt.Sprintf("Invalid file path %s", cfg.UploadFolder))
 			return
 		}
+		defer root.Close()
 
 		relPath := filepath.Clean(chi.URLParam(r, "*"))
 		if relPath == "." || filepath.IsAbs(relPath) {
