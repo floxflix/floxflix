@@ -12,10 +12,15 @@ import (
 // mediaInfo is the subset of ffprobe's output the conversion pipeline needs.
 // Anything ffprobe cannot answer comes back zero-valued; callers must cope.
 type mediaInfo struct {
-	VideoCodec string
-	AudioCodec string
-	PixFmt     string
-	Duration   time.Duration
+	VideoCodec   string
+	AudioCodec   string
+	PixFmt       string
+	Duration     time.Duration
+	VideoProfile string
+	AudioProfile string
+	Level        int
+	FieldOrder   string
+	FrameRate    float64
 }
 
 // ffprobeOutput mirrors the shape of `ffprobe -of json`. Only the fields we
@@ -25,10 +30,14 @@ type ffprobeOutput struct {
 		Duration string `json:"duration"`
 	} `json:"format"`
 	Streams []struct {
-		CodecType string `json:"codec_type"`
-		CodecName string `json:"codec_name"`
-		PixFmt    string `json:"pix_fmt"`
-		Duration  string `json:"duration"`
+		CodecType  string `json:"codec_type"`
+		CodecName  string `json:"codec_name"`
+		PixFmt     string `json:"pix_fmt"`
+		Duration   string `json:"duration"`
+		Profile    string `json:"profile"`
+		Level      int    `json:"level"`
+		FieldOrder string `json:"field_order"`
+		FrameRate  string `json:"r_frame_rate"`
 	} `json:"streams"`
 }
 
@@ -58,11 +67,11 @@ func parseProbeOutput(b []byte) mediaInfo {
 		switch s.CodecType {
 		case "video":
 			if info.VideoCodec == "" {
-				info.VideoCodec, info.PixFmt = s.CodecName, s.PixFmt
+				info.VideoCodec, info.PixFmt, info.VideoProfile, info.Level, info.FieldOrder, info.FrameRate = s.CodecName, s.PixFmt, s.Profile, s.Level, s.FieldOrder, ParseFramerate(s.FrameRate)
 			}
 		case "audio":
 			if info.AudioCodec == "" {
-				info.AudioCodec = s.CodecName
+				info.AudioCodec, info.AudioProfile = s.CodecName, s.Profile
 			}
 		}
 	}
@@ -89,4 +98,17 @@ func parseProbeSeconds(v string) time.Duration {
 		return 0
 	}
 	return time.Duration(secs * float64(time.Second))
+}
+
+func ParseFramerate(rateStr string) float64 {
+	parts := strings.Split(rateStr, "/")
+	if len(parts) != 2 {
+		return 0.0
+	}
+	num, err1 := strconv.ParseFloat(parts[0], 64)
+	den, err2 := strconv.ParseFloat(parts[1], 64)
+	if err1 != nil || err2 != nil || den == 0 {
+		return 0.0
+	}
+	return num / den
 }

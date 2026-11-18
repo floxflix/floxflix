@@ -1,12 +1,17 @@
 package queue
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -229,25 +234,31 @@ func (q *ConversionQueue) processJob(job *Job) error {
 	segmentTime := fmt.Sprintf("%d", q.cfg.HLSSegmentTime)
 	listSize := fmt.Sprintf("%d", q.cfg.HLSListSize)
 
-	canCopyVideo := info.VideoCodec == "h264" && info.PixFmt == "yuv420p"
+	canCopyVideo := isSafeToCopyVideo(job.InputPath, info, q.cfg.HLSSegmentTime)
 
 	videoArgs := []string{
 		"-c:v", "libx264",
 		"-preset", "veryfast",
 		"-crf", "23",
-		"-pix_fmt", "yuv420p", // fuerza 8-bit compatible al recodificar
+		"-pix_fmt", "yuv420p",
 		"-sc_threshold", "0",
 		"-force_key_frames", fmt.Sprintf("expr:gte(t,n_forced*%d)", q.cfg.HLSSegmentTime),
 	}
 
 	if canCopyVideo {
 		videoArgs = []string{"-c:v", "copy"}
+		if q.cfg.HLSSegmentType == "mpegts" {
+			videoArgs = append(videoArgs, "-bsf:v", "h264_mp4toannexb")
+		}
 	}
 
 	audioArgs := []string{"-c:a", "aac", "-b:a", "128k", "-ac", "2"}
-	switch info.AudioCodec {
-	case "aac":
-		audioArgs = []string{"-c:a", "copy", "-bsf:a", "aac_adtstoasc"}
+	if info.AudioCodec == "aac" {
+		audioArgs = []string{"-c:a", "copy"}
+
+		if q.cfg.HLSSegmentType == "fmp4" {
+			audioArgs = append(audioArgs, "-bsf:a", "aac_adtstoasc")
+		}
 	}
 
 	args := []string{
@@ -364,4 +375,91 @@ func (q *ConversionQueue) updateCatalogStatus(job *Job) {
 			log.Printf("Warning: no catalog entry found for %s S%dE%d", job.UUID, job.Season, job.Episode)
 		}
 	}
+}
+
+// isSafeToCopyVideo strictly verifies that an H.264 stream meets all HLS & MSE compatibility requirements.
+func isSafeToCopyVideo(inputPath string, info mediaInfo, hlsSegmentTime int) bool {
+
+	if info.VideoCodec != "h264" || info.PixFmt != "yuv420p" {
+		return false
+	}
+
+	log.Printf("FieldOrder: %s", info.FieldOrder)
+
+	if info.FieldOrder != "" && info.FieldOrder != "progressive" {
+		return false
+	}
+
+	allowedProfiles := map[string]bool{
+		"Baseline":             true,
+		"Constrained Baseline": true,
+		"Main":                 true,
+		"High":                 true,
+	}
+
+	if !allowedProfiles[info.VideoProfile] || info.Level > 42 {
+		return false
+	}
+
+	x264Header := extractX264Header(inputPath)
+	if x264Header == "" {
+		return false
+	}
+
+	if !strings.Contains(x264Header, "vbv_maxrate=") || !strings.Contains(x264Header, "vbv_bufsize=") {
+		return false
+	}
+
+	if strings.Contains(x264Header, "open_gop=1") || strings.Contains(x264Header, "interlaced=1") {
+		return false
+	}
+
+	keyint := parseIntOption(x264Header, `keyint=(\d+)`)
+	if keyint <= 0 || info.FrameRate <= 0 {
+		return false
+	}
+
+	maxAllowedKeyint := int(math.Ceil(info.FrameRate * float64(hlsSegmentTime)))
+	return keyint <= maxAllowedKeyint
+}
+
+// extractX264Header scans the initial bytes of the file for the x264 encoder options string.
+func extractX264Header(filePath string) string {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	buf := make([]byte, 65536) // 64KB is sufficient to capture the SEI user data NAL unit
+	n, err := f.Read(buf)
+	if err != nil || n == 0 {
+		return ""
+	}
+
+	marker := []byte("x264 - core")
+	idx := bytes.Index(buf[:n], marker)
+	if idx == -1 {
+		return ""
+	}
+
+	// Extract up to the null terminator
+	end := bytes.IndexByte(buf[idx:n], 0)
+	if end == -1 {
+		return string(buf[idx:n])
+	}
+	return string(buf[idx : idx+end])
+}
+
+func parseIntOption(header, pattern string) int {
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(header)
+	if len(matches) < 2 {
+		return -1
+	}
+	val, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return -1
+	}
+	return val
 }
