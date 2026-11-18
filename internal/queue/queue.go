@@ -384,8 +384,6 @@ func isSafeToCopyVideo(inputPath string, info mediaInfo, hlsSegmentTime int) boo
 		return false
 	}
 
-	log.Printf("FieldOrder: %s", info.FieldOrder)
-
 	if info.FieldOrder != "" && info.FieldOrder != "progressive" {
 		return false
 	}
