@@ -38,17 +38,13 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # 3. Runtime. ffmpeg is the reason this stays on Alpine rather than distroless.
 FROM alpine:3.23
 
-RUN apk add --no-cache ffmpeg ca-certificates tzdata \
-    && addgroup -S -g 10001 floxflix \
-    && adduser -S -D -H -u 10001 -G floxflix floxflix
+RUN apk add --no-cache ffmpeg ca-certificates tzdata
 
 WORKDIR /app
 
 COPY --from=builder /build/floxflix .
 
 RUN mkdir -p /app/uploads && chown -R floxflix:floxflix /app
-
-USER floxflix
 
 ENV UPLOAD_FOLDER=/app/uploads
 ENV PORT=7777
