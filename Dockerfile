@@ -44,7 +44,7 @@ WORKDIR /app
 
 COPY --from=builder /build/floxflix .
 
-RUN mkdir -p /app/uploads && chown -R floxflix:floxflix /app
+RUN mkdir -p /app/uploads
 
 ENV UPLOAD_FOLDER=/app/uploads
 ENV PORT=7777
