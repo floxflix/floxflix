@@ -21,6 +21,6 @@
 - [ ] README updated (if configuration, routes, or setup changed)
 - [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
 
-## How was this tested?
+## Description
 
-<!-- Describe how you verified the change: unit tests, manual requests (curl/Postman), streaming playback, etc. -->
+<!-- Describe the change. -->
