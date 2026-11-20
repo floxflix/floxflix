@@ -4,7 +4,7 @@
 another device, press play, and land where you left off — with a "Continue Watching" row that puts the
 right thing first.
 
-Status: proposal / not implemented. Owner: @elvus.
+Status: proposal / not implemented.
 
 The viewer-profile scaffolding is already built: `models.Viewer` with names, colours and PINs, a profile
 picker, and a player that already fires the events this feature needs. What's missing is that **nothing

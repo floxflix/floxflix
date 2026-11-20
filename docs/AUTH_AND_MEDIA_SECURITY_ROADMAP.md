@@ -4,7 +4,7 @@
 an assumption about who can reach it. Today FloxFlix authenticates *some* requests, authorizes none of
 them, and serves the entire media library to anyone who can open the port.
 
-Status: proposal / not implemented. Owner: @elvus.
+Status: proposal / not implemented.
 
 Unlike the [Telegram](TELEGRAM_INGEST_ROADMAP.md) and [all-in-one image](ALL_IN_ONE_IMAGE_ROADMAP.md)
 roadmaps, most of this document is not new features — it is **defects that exist in `main` right now**.

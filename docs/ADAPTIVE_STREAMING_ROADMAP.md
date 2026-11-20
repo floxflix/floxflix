@@ -4,7 +4,7 @@
 package — a bitrate ladder behind a master playlist, every audio track selectable, and subtitles that
 survive ingestion instead of being silently discarded.
 
-Status: proposal / not implemented. Owner: @elvus.
+Status: proposal / not implemented.
 
 Everything here lives in `internal/queue/queue.go` (`processJob`, ~70 lines of ffmpeg argument
 assembly) plus the catalog model and the player's track menus.

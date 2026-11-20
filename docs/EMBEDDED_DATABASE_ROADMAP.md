@@ -5,7 +5,7 @@ environment variable, without forking a single handler. This is the prerequisite
 `floxflix:standalone` image in [`ALL_IN_ONE_IMAGE_ROADMAP.md`](ALL_IN_ONE_IMAGE_ROADMAP.md) §9 — the
 persistence layer has to be swappable before a second engine can exist at all.
 
-Status: proposal / not implemented. Owner: @elvus.
+Status: proposal / not implemented.
 
 ---
 

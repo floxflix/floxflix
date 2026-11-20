@@ -8,7 +8,7 @@ Status: **partially implemented, across two repositories.** The bot is a standal
 ([`floxflix-telegram-bot`](https://github.com/floxflix/floxflix-telegram-bot)) that writes into the shared
 `uploads` volume and registers what it saved through the `/v1/api/bot/*` routes. Uploading a file,
 collecting metadata and publishing it to the catalog work end to end. Queue persistence, duplicate
-protection, progress reporting and the hardening in §3 do not. Owner: @elvus.
+protection, progress reporting and the hardening in §3 do not.
 
 ---
 

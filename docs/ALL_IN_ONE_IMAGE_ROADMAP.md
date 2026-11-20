@@ -9,7 +9,7 @@ nobody tracks.
 Status: MVP implemented — the Go server embeds and serves the submodule UI at `web/`, `/config.js` is
 generated from env, the three-stage non-root image is in the root `Dockerfile`, and
 `.github/workflows/release-images.yml` publishes both images on `v*` tags. Remaining polish: the
-version endpoint, post-build CI smoke tests, and the remaining k8s updates. Owner: @elvus.
+version endpoint, post-build CI smoke tests, and the remaining k8s updates.
 
 **Scope note:** "all-in-one" here means *UI + API*. MongoDB stays a separate service — see §9.
 
