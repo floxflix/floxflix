@@ -250,10 +250,10 @@ browser. What needs building:
   passthrough in `docker-compose.yaml`/k8s and a graceful fall back to libx264 when the device is
   absent. Quality per bit is worse than a good software encode — an acceptable trade at 3× the work.
 - **Progress reporting** (`-progress pipe:1`) is already specified in
-  [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) §6 and matters more here, since jobs get
+  [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) §4 and matters more here, since jobs get
   substantially longer.
-- **Concurrency** shares the persisted-queue prerequisite from that same roadmap (§0.1). One ffmpeg at a
-  time is the right default when each job is now three encodes.
+- **Concurrency** shares the persisted-queue prerequisite from that same roadmap (§3.8, §6). One ffmpeg
+  at a time is the right default when each job is now three encodes.
 - **Don't delete the source until the whole package verifies.** `os.Remove(job.InputPath)` runs on
   ffmpeg exit status alone (`queue.go:260`). With multiple outputs there's more to get wrong — validate
   that the master playlist, every variant and every sidecar exist and are non-empty first. Better still,
@@ -322,5 +322,5 @@ subtitle streams are gone once the source is deleted.
 - [Apple — HTTP Live Streaming authoring specification](https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices)
 - [ffmpeg — HLS muxer](https://ffmpeg.org/ffmpeg-formats.html#hls-2) (`var_stream_map`, `master_pl_name`)
 - [ffmpeg — tonemapping](https://trac.ffmpeg.org/wiki/colorspace) · [Hardware acceleration](https://trac.ffmpeg.org/wiki/HWAccelIntro)
-- Related: [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) §0.1 (persisted queue) ·
+- Related: [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) §6 (persisted queue) ·
   [`WATCH_PROGRESS_ROADMAP.md`](WATCH_PROGRESS_ROADMAP.md) §0.1 (duration)

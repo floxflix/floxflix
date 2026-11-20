@@ -228,7 +228,7 @@ attribute playback to a viewer the server doesn't know about.
   entirely — a measurable difference that enumerates valid usernames. Compare against a dummy hash on
   the miss path.
 - **Upload limits.** `MAX_FILE_SIZE` is checked, but there is no per-user quota and no disk-space
-  preflight; the [Telegram roadmap](TELEGRAM_INGEST_ROADMAP.md) §6 raises the same point from the other
+  preflight; the [Telegram roadmap](TELEGRAM_INGEST_ROADMAP.md) §3.7 raises the same point from the other
   direction. Solve it once, in `internal/ingest`.
 - **Audit log.** Login success/failure, privilege changes, uploads, deletions — `{who, what, when, from}`.
   Without it, "was this instance touched?" is unanswerable.

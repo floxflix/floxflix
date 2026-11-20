@@ -111,14 +111,17 @@ pinning that behaviour before anything else depends on it.
 **Escape hatch:** keep the values overridable. Someone fronting the API with a CDN, or serving media
 from a different host, needs to set `VITE_STREAMAPI_URL` explicitly — default to `""`, don't hardcode it.
 
-### 0.3 Fix the server read timeout — `cmd/server/main.go:56`
+### 0.3 The server read timeout — done
 
-Already flagged in [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) §0.3, and the all-in-one
-image makes it **worse, not equal**. Today nginx sits in front of the UI with `client_max_body_size 2048M`
-and its own generous timeouts; in the merged image the Go server is the only thing between a browser
-and a 2 GB upload. `ReadTimeout: 30 * time.Second` bounds reading the entire request body, so every
-real upload dies mid-transfer. Use `ReadHeaderTimeout: 30s` with a large-or-zero `ReadTimeout`, or
-per-route deadlines via `http.ResponseController`.
+This was the blocking prerequisite shared with the
+[Telegram roadmap](TELEGRAM_INGEST_ROADMAP.md): a global `ReadTimeout: 30 * time.Second` bounds reading
+the entire request body, so every real upload died mid-transfer — and the merged image made it **worse,
+not equal**, because nginx's `client_max_body_size 2048M` and its generous timeouts disappear and the Go
+server becomes the only thing between a browser and a 2 GB upload.
+
+Fixed: `cmd/server/main.go` sets `ReadHeaderTimeout: 30 * time.Second` and no `ReadTimeout`, so the body
+is bounded only by `MAX_FILE_SIZE`/`MaxBytesReader`. Don't reintroduce a global `ReadTimeout`; if a route
+needs a deadline, use `http.ResponseController` per handler.
 
 While you're there: `WriteTimeout: 300 * time.Second` now also applies to HLS segment responses and to
 the SPA. It's generous enough today, but note that it caps *any* single response — including a slow
@@ -278,7 +281,7 @@ into it, and the ingress drops to a single host serving both — keep
 Add what's missing while touching these files: a readiness probe (`/healthz/ready` exists and is
 unused), resource *limits* (only requests are set), and `fsGroup` matching the new non-root UID.
 `replicas: 1` must stay — the conversion queue is in-memory and single-worker
-([`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) §0.1), and `RWO` PVC means a second replica
+([`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) §3.8), and `RWO` PVC means a second replica
 can't mount the volume anyway. Say so in a comment so nobody scales it and wonders why jobs vanish.
 
 ### 6.3 CI
@@ -349,7 +352,7 @@ wanted, the honest version is a separate `floxflix:standalone` tag with an embed
 | Stale `index.html` cached after redeploy, pointing at deleted hashed assets | `no-store` on the shell and `/config.js`; `immutable` only on hashed `assets/*` |
 | Submodule not initialized → confusing build failure | Committed placeholder `dist/index.html` keeps `go build` green; CI uses `submodules: recursive`; `CONTRIBUTING.md` note |
 | UI and API versions drift anyway (someone bumps one repo, forgets the other) | Submodule SHA is in this repo's history; `/healthz` reports both |
-| 30 s `ReadTimeout` kills every real upload once nginx is gone | §0.3 — blocking, shared with the Telegram roadmap |
+| A global `ReadTimeout` returns and kills 2 GB uploads once nginx is gone | Already fixed; §0.3 keeps the reasoning and the per-route alternative |
 | Non-root UID breaks existing bind-mounted `uploads/` | Document the UID and a `chown` line; ship it in the same release as the image rename |
 | `--platform=linux/amd64` emulation on arm64 hosts | Multi-arch `buildx`, `$BUILDPLATFORM` + `GOARCH=$TARGETARCH` |
 | Users read this as "the standalone UI image is dead" | Keep publishing it; say so in the README table |
@@ -366,8 +369,8 @@ hosts today, or is the split purely historical?
 **MVP (Phases 0–2):** `docker run -p 7777:7777 -e MONGO_URI=… elvus/floxflix` opens the login page and
 streams a video. Everything after is polish.
 
-1. Phase 0 — SPA fallback, `/config.js` handler, read-timeout fix, port cleanup. *API-only change,
-   ships and is testable before any Docker work.*
+1. Phase 0 — SPA fallback, `/config.js` handler, read-timeout fix (landed), port cleanup. *API-only
+   change, ships and is testable before any Docker work.*
 2. Phase 1 — submodule + `go:embed` + placeholder; `go build` produces a binary that serves the UI.
 3. Phase 2 — the three-stage Dockerfile, non-root, healthcheck. **← MVP ships here**
 4. Phase 3 — compression, cache and security headers, version endpoint.
@@ -375,13 +378,14 @@ streams a video. Everything after is polish.
 6. Phase 5 — README, upgrade notes, first-run admin.
 
 Phases 0–2 are one focused PR each. Phase 0 is worth doing regardless of whether the image ever ships:
-the read-timeout bug is real today, the port inconsistency is real today, and a `/config.js` handler is
+the read timeout is already fixed, the port inconsistency is real today, and a `/config.js` handler is
 strictly less machinery than the entrypoint script it replaces.
 
 ---
 
 ### References
-- [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) — shares the §0.3 read-timeout prerequisite
+- [`TELEGRAM_INGEST_ROADMAP.md`](TELEGRAM_INGEST_ROADMAP.md) — the read-timeout prerequisite (§0.3) is
+  shared history; its §6 has the `jobs` collection the in-memory queue needs
 - [`go:embed`](https://pkg.go.dev/embed) · [`http.ServeFileFS`](https://pkg.go.dev/net/http#ServeFileFS)
 - [Docker — multi-platform builds](https://docs.docker.com/build/building/multi-platform/)
 - UI repository: `streamadmin` (`floxflix-ui`) — `src/env.ts`, `docker-entrypoint.sh`, `config/default.conf`

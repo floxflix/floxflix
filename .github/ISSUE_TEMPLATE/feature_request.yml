@@ -28,9 +28,3 @@ body:
     attributes:
       label: Additional context
       description: Anything else — mockups, links, related issues.
-  - type: checkboxes
-    id: contribution
-    attributes:
-      label: Contribution
-      options:
-        - label: I'm willing to submit a PR for this feature

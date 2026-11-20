@@ -18,7 +18,8 @@ Self-hosted video streaming server written in Go. It ingests source video files,
 - Movie and TV show catalog with seasons, episodes and rich metadata
 - Genre and cast collections, managed through their own CRUD endpoints
 - Multipart upload for source files with automatic FFmpeg-driven HLS conversion
-- Registration endpoints for files already placed in the upload folder, so an external ingester (such as a Telegram bot) can hand work to the queue without re-uploading
+- Registration endpoints for files already placed in the upload folder, so an external ingester can hand work to the queue without re-uploading
+- Telegram ingestion through the companion [`floxflix-telegram-bot`](https://github.com/floxflix/floxflix-telegram-bot), which writes into `UPLOAD_FOLDER` and registers each file through `/v1/api/bot/*`
 - Background conversion queue with status, start and cleanup endpoints
 - HLS streaming endpoint serving `.m3u8`, `.ts`, `.m4s` and `.mp4`, plus a poster/background image endpoint
 - Health, ping and readiness probes
@@ -51,7 +52,9 @@ internal/web/        Embedded SPA assets (go:embed) and static-file handler
   dist/                           Committed placeholder; the real build is
                                   baked in by the all-in-one Dockerfile
 web/                 UI git submodule (React + Vite)
-docs/                Design and roadmap notes (adaptive streaming, Telegram ingest, ...)
+docs/                Design and roadmap notes (adaptive streaming, Telegram ingest,
+                     auth and media access, watch progress, all-in-one image,
+                     embedded database)
 .devcontainer/       VS Code dev container (Go, Node, FFmpeg; builds the UI)
 .github/workflows/   GHCR release-images pipeline (runs on v* tags)
 Dockerfile           All-in-one image (UI + API)
@@ -321,7 +324,9 @@ Queue control endpoints (all require JWT):
 
 ### Bot ingest endpoints
 
-`/v1/api/bot/*` exists for an external ingester — currently the Telegram bot (see [`docs/TELEGRAM_INGEST_ROADMAP.md`](./docs/TELEGRAM_INGEST_ROADMAP.md)) — that drops files straight into `UPLOAD_FOLDER` and then tells the API about them. They are the same handlers as the JWT-protected catalog routes, registered a second time:
+`/v1/api/bot/*` exists for an external ingester — currently the
+[`floxflix-telegram-bot`](https://github.com/floxflix/floxflix-telegram-bot) (see
+[`docs/TELEGRAM_INGEST_ROADMAP.md`](./docs/TELEGRAM_INGEST_ROADMAP.md)) — that drops files straight into `UPLOAD_FOLDER` and then tells the API about them. They are the same handlers as the JWT-protected catalog routes, registered a second time:
 
 | Endpoint                                       | Equivalent protected route              |
 | ---------------------------------------------- | --------------------------------------- |
@@ -330,7 +335,7 @@ Queue control endpoints (all require JWT):
 | `GET  /v1/api/bot/titles?title=<q>`             | — (case-insensitive title search, used to find the show to append to) |
 | `GET  /v1/api/bot/genres`                       | `GET /v1/api/genres`                    |
 
-> **These routes carry no authentication.** Anyone who can reach them can write to the catalog and queue FFmpeg work. Keep `/v1/api/bot/*` on a private network, or block it at the reverse proxy and let only the bot through.
+> **These routes carry no authentication.** Anyone who can reach them can write to the catalog and queue FFmpeg work. Keep `/v1/api/bot/*` on a private network, or block it at the reverse proxy and let only the bot through. Requiring a shared secret is the first item in [`docs/TELEGRAM_INGEST_ROADMAP.md`](./docs/TELEGRAM_INGEST_ROADMAP.md) §3.1.
 
 ## Contributing
 
