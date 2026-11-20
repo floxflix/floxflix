@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -139,6 +140,9 @@ func JWTRefresh(secret []byte, client *mongo.Client) func(http.Handler) http.Han
 			}
 
 			if isTokenBlacklisted(client, claims.ID) {
+				// A rotated or revoked refresh token being presented again
+				// may mean it was stolen: leave a trace for the operator.
+				log.Printf("auth: reuse of revoked refresh token jti=%s user_id=%s remote=%s", claims.ID, claims.UserID, r.RemoteAddr)
 				utils.Error(w, http.StatusUnauthorized, "Token has been revoked")
 				return
 			}
