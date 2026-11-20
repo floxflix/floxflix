@@ -217,11 +217,21 @@ func handleRefreshToken(client *mongo.Client, cfg *config.Config) http.HandlerFu
 			return
 		}
 
+		// Rotate the refresh token: blacklist the one presented on this request
+		// so a stolen copy stops working as soon as the legitimate client
+		// refreshes. A replay of the old token is then rejected by JWTRefresh.
+		blacklist := database.Collection(client, "token_blacklist")
+		if _, err := blacklist.InsertOne(ctx, models.BlacklistedToken{
+			JTI:       claims.ID,
+			CreatedAt: time.Now(),
+			ExpiresAt: claims.ExpiresAt.Time,
+		}); err != nil {
+			utils.Error(w, http.StatusInternalServerError, "Failed to rotate refresh token")
+			return
+		}
+
 		// Reissue both cookies: the refresh cookie's MaxAge restarts, so a
-		// device that keeps using the app slides its session forward instead
-		// of expiring 30 days after the original login. The token presented on
-		// this request is not blacklisted — concurrent tabs would race each
-		// other's refresh, and the app serializes refreshes client-side.
+		// device that keeps using the app slides its session forward.
 		setAuthCookies(w, cfg, accessToken, refreshToken)
 
 		utils.Success(w, http.StatusOK, map[string]any{
